@@ -1,6 +1,7 @@
 from manim import *
 
 # Vibe-coded almost entirely with o4-mini-high
+# https://chatgpt.com/share/6849cb15-b9c4-8000-9c96-2a8db0c9b9ae
 
 class FoldExpressionTree(Scene):
     background_color = WHITE
