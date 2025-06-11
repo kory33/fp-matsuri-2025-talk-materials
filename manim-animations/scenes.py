@@ -1,7 +1,50 @@
+from enum import Enum
 from manim import *
+from typing import Callable, TypeAlias, TypeVar, Tuple, NamedTuple
 
 # Vibe-coded with o4-mini-high and then edited
 # https://chatgpt.com/share/6849cb15-b9c4-8000-9c96-2a8db0c9b9ae
+
+class BinTreeDirection(Enum):
+    LEFT = 1
+    RIGHT = 2
+
+A = TypeVar("A")
+B = TypeVar("B")
+
+TreeLike: TypeAlias = dict[Tuple[BinTreeDirection, ...], A]
+
+def zip_with_children_from_root(tree: TreeLike[A]) -> TreeLike[Tuple[A, dict[BinTreeDirection, A]]]:
+    result: TreeLike[Tuple[A, dict[BinTreeDirection, A]]] = {}
+    
+    for path, node_value in tree.items():
+        children = {}
+        for direction in BinTreeDirection:
+            child_path = path + (direction,)
+            if child_path in tree:
+                children[direction] = tree[child_path]
+        result[path] = (node_value, children)
+    
+    return result
+
+def subtree_rooted_at_node_by_path(tree: TreeLike[A], path: Tuple[BinTreeDirection, ...]) -> TreeLike[A]:
+    subtree: TreeLike[A] = {}
+    for sub_path, node_value in tree.items():
+        if sub_path[:len(path)] == path:
+            subtree[sub_path[len(path):]] = node_value
+    return subtree
+
+def replace_subtree_with_tree(tree: TreeLike[A], target_path: Tuple[BinTreeDirection, ...], new_sub_tree: TreeLike[A]) -> TreeLike[A]:
+    if target_path in tree:
+        new_tree = {}
+        for path, old_value in tree.items():
+            if path[:len(path)] != target_path:
+                new_tree[path] = old_value
+        for sub_path, new_value in new_sub_tree.items():
+            new_tree[target_path + sub_path] = new_value
+        return new_tree
+    else:
+        return tree
 
 class FoldExpressionTree_3625(Scene):
     background_color = WHITE
@@ -20,22 +63,28 @@ class FoldExpressionTree_3625(Scene):
         self.camera.background_color = WHITE
 
         # ─── 1) Place the nodes ─────────────────────────────────────────────────
-        root        = MathTex("+", **NODE_CONFIG).move_to(UP * 2)
-        left_plus   = MathTex("+", **NODE_CONFIG).move_to(LEFT * 2)
-        right_times = MathTex("\\times", **NODE_CONFIG).move_to(RIGHT * 2)
-        leaf3       = MathTex("3", **NODE_CONFIG).move_to(LEFT * 3 + DOWN * 2)
-        leaf6       = MathTex("6", **NODE_CONFIG).move_to(LEFT * 1 + DOWN * 2)
-        leaf2       = MathTex("2", **NODE_CONFIG).move_to(RIGHT * 1 + DOWN * 2)
-        leaf5       = MathTex("5", **NODE_CONFIG).move_to(RIGHT * 3 + DOWN * 2)
+        class ExprNode(NamedTuple):
+            path: Tuple[BinTreeDirection, ...]
+            node_value: MathTex
 
-        nodes = [root, left_plus, right_times, leaf3, leaf6, leaf2, leaf5]
-        self.wait(0.3)
-        # move the tree to the left
-        nodes_group = VGroup(*nodes)
+        root        = ExprNode((), MathTex("+", **NODE_CONFIG).move_to(UP * 2))
+        left_plus   = ExprNode((BinTreeDirection.LEFT,), MathTex("+", **NODE_CONFIG).move_to(LEFT * 2))
+        right_times = ExprNode((BinTreeDirection.RIGHT,), MathTex("\\times", **NODE_CONFIG).move_to(RIGHT * 2))
+        leaf3       = ExprNode((BinTreeDirection.LEFT, BinTreeDirection.LEFT), MathTex("3", **NODE_CONFIG).move_to(LEFT * 3 + DOWN * 2))
+        leaf6       = ExprNode((BinTreeDirection.LEFT, BinTreeDirection.RIGHT), MathTex("6", **NODE_CONFIG).move_to(LEFT * 1 + DOWN * 2))
+        leaf2       = ExprNode((BinTreeDirection.RIGHT, BinTreeDirection.LEFT), MathTex("2", **NODE_CONFIG).move_to(RIGHT * 1 + DOWN * 2))
+        leaf5       = ExprNode((BinTreeDirection.RIGHT, BinTreeDirection.RIGHT), MathTex("5", **NODE_CONFIG).move_to(RIGHT * 3 + DOWN * 2))
+
+        tree: TreeLike[MathTex] = dict([(n.path, n.node_value) for n in [root, left_plus, right_times, leaf3, leaf6, leaf2, leaf5]])
+
+        # move the tree to the left and draw
+        nodes_group = VGroup(*tree.values())
         nodes_group.to_edge(LEFT, buff=1)
+
+        self.wait(0.3)
         self.play(Create(nodes_group, lag_ratio=0))
 
-        # ─── 2) “Circle‐aware” connector ────────────────────────────────────────
+        # ─── 2.0) “Circle‐aware” connector ────────────────────────────────────────
         def connect(parent: Mobject, child: Mobject) -> Line:
             p_center = parent.get_center()
             c_center = child.get_center()
@@ -48,82 +97,113 @@ class FoldExpressionTree_3625(Scene):
             end   = c_center - direction * r_c
             return Line(start, end, **LINE_CONFIG)
 
-        # draw all edges
-        edges = VGroup(
-            connect(root, left_plus),
-            connect(root, right_times),
-            connect(left_plus, leaf3),
-            connect(left_plus, leaf6),
-            connect(right_times, leaf2),
-            connect(right_times, leaf5),
+        # ─── 2.1) Draw all edges and the expression view ───────────────────────────
+
+        edge_from_parent: TreeLike[Line | None] = dict(
+            [(path_to_parent + (direction,), connect(parent, child))
+                for path_to_parent, (parent, children) in zip_with_children_from_root(tree).items()
+                for direction, child in children.items()
+            ] + [((), None)] # root has no parent
         )
 
-        # ─── 2.5) Expression view ────────────────────────────────────────────────
-        expr = MathTex("(3+6)", "+", "(2\\times5)", arg_separator="", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=1)
+        edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
+
+        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
+        expr = current_expr_modification(MathTex("(3+6)+(2\\times5)", arg_separator="", **NODE_CONFIG))
 
         self.play(Create(VGroup(edges, expr), lag_ratio=0))
-        self.wait(SLEEP_BETWEEN_REDUCTION_STEPS)
+
+        def animate_reduction(
+            current_expr_tree: TreeLike[MathTex],
+            current_expr: MathTex,
+            current_expr_modification: Callable[[MathTex], MathTex],
+            path_to_redex: Tuple[BinTreeDirection, ...],
+            # Hack: We *hard-swap* current_expr with current_expr_body_double right before the transition effect
+            #       because current_expr may not be split into suitable parts that allows matching by redex_part_in_expr.
+            #       The rendering result of current_expr and current_expr_body_double must be the same, hence the name current_expr_body_double.
+            current_expr_body_double: MathTex,
+            redex_part_in_expr: str,
+            new_expr_parts: Tuple[str, ...],
+            # new_value must appear in new_expr_parts
+            new_value: str,
+            new_expr_right_edge_buff: float,
+        ) -> tuple[TreeLike[MathTex], MathTex, Callable[[MathTex], MathTex]]:
+            def vgroup_containing_direct_children_along_with_node_at(path: Tuple[BinTreeDirection, ...]) -> VGroup:
+                nodes = [n for n in
+                            [current_expr_tree.get(path), 
+                            current_expr_tree.get(path + (BinTreeDirection.LEFT,)),
+                            current_expr_tree.get(path + (BinTreeDirection.RIGHT,))]
+                            if n is not None]
+                edges = [e for e in
+                            [edge_from_parent.get(path + (BinTreeDirection.LEFT,)),
+                            edge_from_parent.get(path + (BinTreeDirection.RIGHT,))]
+                            if e is not None]
+                return VGroup(*nodes, *edges)
+
+            modified_body_double = current_expr_modification(current_expr_body_double)
+            self.remove(current_expr); self.add(modified_body_double) # *hard-swap*
+
+            subtree = vgroup_containing_direct_children_along_with_node_at(path_to_redex)
+            subtree_box = SurroundingRectangle(subtree, color=ORANGE, buff=0.3)
+            subtree_expr_box = SurroundingRectangle(modified_body_double.get_part_by_tex(redex_part_in_expr), color=ORANGE, buff=0.1)
+
+            self.play(Create(subtree_box), Create(subtree_expr_box))
+            self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION)
+
+            new_value_node = MathTex(new_value, **NODE_CONFIG).move_to(current_expr_tree.get(path_to_redex).get_center())
+            new_value_box = SurroundingRectangle(new_value_node, color=ORANGE, buff=0.1)
+
+            new_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=new_expr_right_edge_buff)
+            new_expr = new_expr_modification(MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG))
+            new_expr_box = SurroundingRectangle(new_expr.get_part_by_tex(new_value), color=ORANGE, buff=0.1)
+
+            self.play(
+                ReplacementTransform(subtree, new_value_node),
+                ReplacementTransform(subtree_box, new_value_box),
+                ReplacementTransform(modified_body_double, new_expr),
+                ReplacementTransform(subtree_expr_box, new_expr_box),
+                run_time=0.6
+            )
+            self.play(FadeOut(new_value_box), FadeOut(new_expr_box), run_time=SLEEP_BETWEEN_REDUCTION_STEPS / 2)
+            self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
+
+            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr, new_expr_modification)
 
         # ─── 3) Collapse (3 + 6) → 9 ───────────────────────────────────────────
-        sub1 = VGroup(left_plus, leaf3, leaf6,
-                      # we’ll also need to remove those two edges
-                      edges[2], edges[3])
-        box1 = SurroundingRectangle(sub1, color=ORANGE, buff=0.3)
-        box1_expr = SurroundingRectangle(expr.get_part_by_tex("(3+6)"), color=ORANGE, buff=0.1)
-        self.play(Create(box1), Create(box1_expr))
-        self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION)
-        const9 = MathTex("9", **NODE_CONFIG).move_to(left_plus.get_center())
-        box1_new = SurroundingRectangle(const9, color=ORANGE, buff=0.1)
-        const9_expr = MathTex("9", "+", "(2\\times5)", arg_separator="", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=2)
-        box1_expr_new = SurroundingRectangle(const9_expr.get_part_by_tex("9"), color=ORANGE, buff=0.1)
-        self.play(
-            ReplacementTransform(sub1, const9),
-            ReplacementTransform(box1, box1_new),
-            ReplacementTransform(expr, const9_expr),
-            ReplacementTransform(box1_expr, box1_expr_new),
-            run_time=0.6
+        tree, expr, current_expr_modification = animate_reduction(
+            current_expr_tree=tree,
+            current_expr=expr,
+            current_expr_modification=current_expr_modification,
+            path_to_redex=left_plus.path,
+            current_expr_body_double=MathTex("(3+6)", "+(2\\times5)", **NODE_CONFIG),
+            redex_part_in_expr="(3+6)",
+            new_expr_parts=("9", "+(2\\times5)"),
+            new_value="9",
+            new_expr_right_edge_buff=2
         )
-        expr = const9_expr
-        self.play(FadeOut(box1_new), FadeOut(box1_expr_new), run_time = SLEEP_BETWEEN_REDUCTION_STEPS / 2)
-        self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
 
         # ─── 4) Collapse (2 × 5) → 10 ──────────────────────────────────────────
-        sub2 = VGroup(right_times, leaf2, leaf5, edges[4], edges[5])
-        box2 = SurroundingRectangle(sub2, color=ORANGE, buff=0.3)
-        box2_expr = SurroundingRectangle(expr.get_part_by_tex("(2\\times5)"), color=ORANGE, buff=0.1)
-        self.play(Create(box2), Create(box2_expr))
-        self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION)
-        const10 = MathTex("10", **NODE_CONFIG).move_to(right_times.get_center())
-        box2_new = SurroundingRectangle(const10, color=ORANGE, buff=0.1)
-        const10_expr = MathTex("9", "+", "10", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=3)
-        box2_expr_new = SurroundingRectangle(const10_expr.get_part_by_tex("10"), color=ORANGE, buff=0.1)
-        self.play(
-            ReplacementTransform(sub2, const10),
-            ReplacementTransform(box2, box2_new),
-            ReplacementTransform(expr, const10_expr),
-            ReplacementTransform(box2_expr, box2_expr_new),
-            run_time=0.6
+        tree, expr, current_expr_modification = animate_reduction(
+            current_expr_tree=tree,
+            current_expr=expr,
+            current_expr_modification=current_expr_modification,
+            path_to_redex=right_times.path,
+            current_expr_body_double=MathTex("9+", "(2\\times5)", **NODE_CONFIG),
+            redex_part_in_expr="(2\\times5)",
+            new_expr_parts=("9+", "10"),
+            new_value="10",
+            new_expr_right_edge_buff=3
         )
-        expr = const10_expr
-        self.play(FadeOut(box2_new), FadeOut(box2_expr_new), run_time = SLEEP_BETWEEN_REDUCTION_STEPS / 2)
-        self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
 
         # ─── 5) Collapse (9 + 10) → 19 ─────────────────────────────────────────
-        sub3 = VGroup(root, const9, const10, edges[0], edges[1])
-        box3 = SurroundingRectangle(sub3, color=ORANGE, buff=0.3)
-        box3_expr = SurroundingRectangle(expr, color=ORANGE, buff=0.1)
-        self.play(Create(box3), Create(box3_expr))
-        self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION)
-        const19 = MathTex("19", **NODE_CONFIG).move_to(root.get_center())
-        box3_new = SurroundingRectangle(const19, color=ORANGE, buff=0.1)
-        const19_expr = MathTex("19", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=3)
-        box3_expr_new = SurroundingRectangle(const19_expr, color=ORANGE, buff=0.1)
-        self.play(
-            ReplacementTransform(sub3, const19),
-            ReplacementTransform(box3, box3_new),
-            ReplacementTransform(expr, const19_expr),
-            ReplacementTransform(box3_expr, box3_expr_new),
-            run_time=0.6
+        tree, expr, current_expr_modification = animate_reduction(
+            current_expr_tree=tree,
+            current_expr=expr,
+            current_expr_modification=current_expr_modification,
+            path_to_redex=root.path,
+            current_expr_body_double=MathTex("9+10", **NODE_CONFIG),
+            redex_part_in_expr="9+10",
+            new_expr_parts=("19",),
+            new_value="19",
+            new_expr_right_edge_buff=3
         )
-        self.play(FadeOut(box3_new), FadeOut(box3_expr_new), run_time = SLEEP_BETWEEN_REDUCTION_STEPS / 2)
-        self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
