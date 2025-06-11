@@ -62,7 +62,7 @@ class FoldExpressionTree_3625(Scene):
 
         self.camera.background_color = WHITE
 
-        # ─── 1) Place the nodes ─────────────────────────────────────────────────
+        # ─── 1.0) Define data
         class ExprNode(NamedTuple):
             path: Tuple[BinTreeDirection, ...]
             node_value: MathTex
@@ -76,15 +76,10 @@ class FoldExpressionTree_3625(Scene):
         leaf5       = ExprNode((BinTreeDirection.RIGHT, BinTreeDirection.RIGHT), MathTex("5", **NODE_CONFIG).move_to(RIGHT * 3 + DOWN * 2))
 
         tree: TreeLike[MathTex] = dict([(n.path, n.node_value) for n in [root, left_plus, right_times, leaf3, leaf6, leaf2, leaf5]])
+        tree_nodes_group = VGroup(*tree.values())
+        tree_nodes_group.to_edge(LEFT, buff=1)
 
-        # move the tree to the left and draw
-        nodes_group = VGroup(*tree.values())
-        nodes_group.to_edge(LEFT, buff=1)
-
-        self.wait(0.3)
-        self.play(Create(nodes_group, lag_ratio=0))
-
-        # ─── 2.0) “Circle‐aware” connector ────────────────────────────────────────
+        # ─── 1.1) “Circle‐aware” connector ────────────────────────────────────────
         def connect(parent: Mobject, child: Mobject) -> Line:
             p_center = parent.get_center()
             c_center = child.get_center()
@@ -97,7 +92,7 @@ class FoldExpressionTree_3625(Scene):
             end   = c_center - direction * r_c
             return Line(start, end, **LINE_CONFIG)
 
-        # ─── 2.1) Draw all edges and the expression view ───────────────────────────
+        # ─── 1.2) generate edge cache ─────────────────────────────────────────────
 
         edge_from_parent: TreeLike[Line | None] = dict(
             [(path_to_parent + (direction,), connect(parent, child))
@@ -106,12 +101,7 @@ class FoldExpressionTree_3625(Scene):
             ] + [((), None)] # root has no parent
         )
 
-        edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
-
-        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
-        expr = current_expr_modification(MathTex("(3+6)+(2\\times5)", arg_separator="", **NODE_CONFIG))
-
-        self.play(Create(VGroup(edges, expr), lag_ratio=0))
+        # ─── 1.3) define reduction step animation ─────────────────────────────────
 
         def animate_reduction(
             current_expr_tree: TreeLike[MathTex],
@@ -169,7 +159,17 @@ class FoldExpressionTree_3625(Scene):
 
             return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr, new_expr_modification)
 
-        # ─── 3) Collapse (3 + 6) → 9 ───────────────────────────────────────────
+        # ─── 1.4) Prepare state variables ────────────────────────────────────────
+        edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
+        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
+        expr = current_expr_modification(MathTex("(3+6)+(2\\times5)", arg_separator="", **NODE_CONFIG))
+
+        # ─── 2.0) Start main animation ───────────────────────────────────────────
+        self.wait(0.3)
+        self.play(Create(VGroup(*tree.values()), lag_ratio=0))
+        self.play(Create(VGroup(edges, expr), lag_ratio=0))
+
+        # (3+6)+(2×5) → 9 +(2×5)
         tree, expr, current_expr_modification = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
@@ -182,7 +182,7 @@ class FoldExpressionTree_3625(Scene):
             new_expr_right_edge_buff=2
         )
 
-        # ─── 4) Collapse (2 × 5) → 10 ──────────────────────────────────────────
+        # 9 + (2×5) → 9 + 10
         tree, expr, current_expr_modification = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
@@ -195,7 +195,7 @@ class FoldExpressionTree_3625(Scene):
             new_expr_right_edge_buff=3
         )
 
-        # ─── 5) Collapse (9 + 10) → 19 ─────────────────────────────────────────
+        # 9 + 10 → 19
         tree, expr, current_expr_modification = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
