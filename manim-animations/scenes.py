@@ -107,7 +107,6 @@ class FoldExpressionTree_3625(Scene):
         def animate_reduction(
             current_expr_tree: TreeLike[MathTex],
             current_expr: MathTex,
-            current_expr_modification: Callable[[MathTex], MathTex],
             path_to_redex: Tuple[BinTreeDirection, ...],
             # Hack: We *hard-swap* current_expr with current_expr_body_double right before the transition effect
             #       because current_expr may not be split into suitable parts that allows matching by redex_part_in_expr.
@@ -116,9 +115,8 @@ class FoldExpressionTree_3625(Scene):
             redex_part_in_expr: str,
             new_expr_parts: Tuple[str, ...],
             # new_value must appear in new_expr_parts
-            new_value: str,
-            new_expr_right_edge_buff: float,
-        ) -> tuple[TreeLike[MathTex], MathTex, Callable[[MathTex], MathTex]]:
+            new_value: str
+        ) -> tuple[TreeLike[MathTex], MathTex]:
             def vgroup_containing_direct_children_along_with_node_at(path: Tuple[BinTreeDirection, ...]) -> VGroup:
                 nodes = [n for n in
                             [current_expr_tree.get(path), 
@@ -131,7 +129,7 @@ class FoldExpressionTree_3625(Scene):
                             if e is not None]
                 return VGroup(*nodes, *edges)
 
-            modified_body_double = current_expr_modification(current_expr_body_double)
+            modified_body_double = current_expr_body_double.scale(0.8).set_x(current_expr.get_center()[0])
             self.remove(current_expr); self.add(modified_body_double) # *hard-swap*
 
             subtree = vgroup_containing_direct_children_along_with_node_at(path_to_redex)
@@ -144,8 +142,7 @@ class FoldExpressionTree_3625(Scene):
             new_value_node = MathTex(new_value, **NODE_CONFIG).move_to(current_expr_tree.get(path_to_redex).get_center())
             new_value_box = SurroundingRectangle(new_value_node, color=ORANGE, buff=0.1)
 
-            new_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=new_expr_right_edge_buff)
-            new_expr = new_expr_modification(MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG))
+            new_expr = MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG).scale(0.8).set_x(current_expr.get_center()[0])
             new_expr_box = SurroundingRectangle(new_expr.get_part_by_tex(new_value), color=ORANGE, buff=0.1)
 
             self.play(
@@ -158,12 +155,11 @@ class FoldExpressionTree_3625(Scene):
             self.play(FadeOut(new_value_box), FadeOut(new_expr_box), run_time=SLEEP_BETWEEN_REDUCTION_STEPS / 2)
             self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
 
-            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr, new_expr_modification)
+            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr)
 
         # ─── 1.4) Prepare state variables ────────────────────────────────────────
         edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
-        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
-        expr = current_expr_modification(MathTex("(3+6)+(2\\times5)", arg_separator="", **NODE_CONFIG))
+        expr = MathTex("(3+6)+(2\\times5)", arg_separator="", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=1)
 
         # ─── 2.0) Start main animation ───────────────────────────────────────────
         self.wait(0.3)
@@ -171,42 +167,36 @@ class FoldExpressionTree_3625(Scene):
         self.play(Create(VGroup(edges, expr), lag_ratio=0))
 
         # (3+6)+(2×5) → 9 +(2×5)
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=left_plus.path,
             current_expr_body_double=MathTex("(3+6)", "+(2\\times5)", **NODE_CONFIG),
             redex_part_in_expr="(3+6)",
             new_expr_parts=("9", "+(2\\times5)"),
-            new_value="9",
-            new_expr_right_edge_buff=2
+            new_value="9"
         )
 
         # 9 + (2×5) → 9 + 10
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=right_times.path,
             current_expr_body_double=MathTex("9+", "(2\\times5)", **NODE_CONFIG),
             redex_part_in_expr="(2\\times5)",
             new_expr_parts=("9+", "10"),
-            new_value="10",
-            new_expr_right_edge_buff=3
+            new_value="10"
         )
 
         # 9 + 10 → 19
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=root.path,
             current_expr_body_double=MathTex("9+10", **NODE_CONFIG),
             redex_part_in_expr="9+10",
             new_expr_parts=("19",),
-            new_value="19",
-            new_expr_right_edge_buff=3
+            new_value="19"
         )
 
 class SearchRedexAndFoldExpressionTree_13479(Scene):
@@ -218,7 +208,7 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
         BUFF      = 0.3   # extra padding around each symbol’s circle
 
         SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS = 0.3
-        SLEEP_AFTER_REDEX_IDENTIFICATION = 0.3
+        SLEEP_AFTER_REDEX_IDENTIFICATION = 0.2
         SLEEP_BETWEEN_REDUCTION_STEPS = 0.5
 
         NODE_CONFIG = dict(font_size=60, color=BLACK)
@@ -261,7 +251,6 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
         def animate_reduction(
             current_expr_tree: TreeLike[MathTex],
             current_expr: MathTex,
-            current_expr_modification: Callable[[MathTex], MathTex],
             path_to_redex: Tuple[BinTreeDirection, ...],
             # Hack: We *hard-swap* current_expr with current_expr_body_double right before the transition effect
             #       because current_expr may not be split into suitable parts that allows matching by redex_part_in_expr.
@@ -270,8 +259,7 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
             redex_part_in_expr: str,
             new_expr_parts: Tuple[str, ...],
             # new_value must appear in new_expr_parts
-            new_value: str,
-            new_expr_right_edge_buff: float,
+            new_value: str
         ) -> tuple[TreeLike[MathTex], MathTex, Callable[[MathTex], MathTex]]:
             def vgroup_containing_direct_children_along_with_node_at(path: Tuple[BinTreeDirection, ...]) -> VGroup:
                 nodes = [n for n in
@@ -285,7 +273,7 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
                             if e is not None]
                 return VGroup(*nodes, *edges)
 
-            modified_body_double = current_expr_modification(current_expr_body_double)
+            modified_body_double = current_expr_body_double.scale(0.8).set_x(current_expr.get_center()[0])
 
             subtree = vgroup_containing_direct_children_along_with_node_at(path_to_redex)
             subtree_box = SurroundingRectangle(subtree, color=ORANGE, buff=0.3)
@@ -294,8 +282,7 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
             new_value_node = MathTex(new_value, **NODE_CONFIG).move_to(current_expr_tree.get(path_to_redex).get_center())
             new_value_box = SurroundingRectangle(new_value_node, color=ORANGE, buff=0.1)
 
-            new_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=new_expr_right_edge_buff)
-            new_expr = new_expr_modification(MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG))
+            new_expr = MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG).scale(0.8).set_x(current_expr.get_center()[0])
             new_expr_box = SurroundingRectangle(new_expr.get_part_by_tex(new_value), color=ORANGE, buff=0.1)
 
             rectangles_along_path = [
@@ -338,68 +325,58 @@ class SearchRedexAndFoldExpressionTree_13479(Scene):
             self.play(FadeOut(new_value_box), FadeOut(new_expr_box), run_time=SLEEP_BETWEEN_REDUCTION_STEPS / 2)
             self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
 
-            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr, new_expr_modification)
+            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr)
 
         # ─── 1.4) Prepare state variables ────────────────────────────────────────
         edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
-        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
-        expr = current_expr_modification(MathTex("((1+3)+(4\\times7))+9", arg_separator="", **NODE_CONFIG))
+        expr = MathTex("((1+3)+(4\\times7))+9", arg_separator="", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=1)
 
         # ─── 2.0) Start main animation ───────────────────────────────────────────
-        self.wait(0.3)
-        self.play(Create(VGroup(*tree.values()), lag_ratio=0))
-        self.play(Create(VGroup(edges, expr), lag_ratio=0))
+        self.wait(1)
+        self.play(Create(VGroup(*tree.values(), edges, expr), lag_ratio=0))
 
         # ((1+3) + (4×7)) + 9 → (4 + (4×7)) + 9
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=left_left_plus.path,
             current_expr_body_double=MathTex("(", "(1+3)", "+(4\\times7))+9", **NODE_CONFIG),
             redex_part_in_expr="(1+3)",
             new_expr_parts=("(", "4", "+(4\\times7))+9"),
-            new_value="4",
-            new_expr_right_edge_buff=2
+            new_value="4"
         )
 
         # (4 + (4×7)) + 9 → (4 + 28) + 9
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=left_right_times.path,
             current_expr_body_double=MathTex("(4+", "(4\\times7)", ")+9", **NODE_CONFIG),
             redex_part_in_expr="(4\\times7)",
             new_expr_parts=("(4+", "28", ")+9"),
-            new_value="28",
-            new_expr_right_edge_buff=3
+            new_value="28"
         )
 
         # (4 + 28) + 9 → 32 + 9
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=left_plus.path,
             current_expr_body_double=MathTex("(4+28)", "+9", **NODE_CONFIG),
             redex_part_in_expr="(4+28)",
             new_expr_parts=("32", "+9"),
-            new_value="32",
-            new_expr_right_edge_buff=3
+            new_value="32"
         )
 
         # 32 + 9 → 41
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=root.path,
             current_expr_body_double=MathTex("32+9", **NODE_CONFIG),
             redex_part_in_expr="32+9",
             new_expr_parts=("41",),
-            new_value="41",
-            new_expr_right_edge_buff=3
+            new_value="41"
         )
 
 class SearchRedexAndFoldExpressionTree_123456(Scene):
@@ -411,7 +388,7 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
         BUFF      = 0.3   # extra padding around each symbol’s circle
 
         SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS = 0.3
-        SLEEP_AFTER_REDEX_IDENTIFICATION = 0.3
+        SLEEP_AFTER_REDEX_IDENTIFICATION = 0.15
         SLEEP_BETWEEN_REDUCTION_STEPS = 0.5
 
         NODE_CONFIG = dict(font_size=60, color=BLACK)
@@ -456,7 +433,6 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
         def animate_reduction(
             current_expr_tree: TreeLike[MathTex],
             current_expr: MathTex,
-            current_expr_modification: Callable[[MathTex], MathTex],
             path_to_redex: Tuple[BinTreeDirection, ...],
             # Hack: We *hard-swap* current_expr with current_expr_body_double right before the transition effect
             #       because current_expr may not be split into suitable parts that allows matching by redex_part_in_expr.
@@ -465,8 +441,7 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
             redex_part_in_expr: str,
             new_expr_parts: Tuple[str, ...],
             # new_value must appear in new_expr_parts
-            new_value: str,
-            new_expr_right_edge_buff: float,
+            new_value: str
         ) -> tuple[TreeLike[MathTex], MathTex, Callable[[MathTex], MathTex]]:
             def vgroup_containing_direct_children_along_with_node_at(path: Tuple[BinTreeDirection, ...]) -> VGroup:
                 nodes = [n for n in
@@ -480,7 +455,7 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
                             if e is not None]
                 return VGroup(*nodes, *edges)
 
-            modified_body_double = current_expr_modification(current_expr_body_double)
+            modified_body_double = current_expr_body_double.scale(0.8).set_x(current_expr.get_center()[0])
 
             subtree = vgroup_containing_direct_children_along_with_node_at(path_to_redex)
             subtree_box = SurroundingRectangle(subtree, color=ORANGE, buff=0.15)
@@ -489,8 +464,7 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
             new_value_node = MathTex(new_value, **NODE_CONFIG).scale(0.8).move_to(current_expr_tree.get(path_to_redex).get_center())
             new_value_box = SurroundingRectangle(new_value_node, color=ORANGE, buff=0.1)
 
-            new_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=new_expr_right_edge_buff)
-            new_expr = new_expr_modification(MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG))
+            new_expr = MathTex(*new_expr_parts, arg_separator="", **NODE_CONFIG).scale(0.8).set_x(current_expr.get_center()[0])
             new_expr_box = SurroundingRectangle(new_expr.get_part_by_tex(new_value), color=ORANGE, buff=0.1)
 
             rectangles_along_path = [
@@ -533,79 +507,72 @@ class SearchRedexAndFoldExpressionTree_123456(Scene):
             self.play(FadeOut(new_value_box), FadeOut(new_expr_box), run_time=SLEEP_BETWEEN_REDUCTION_STEPS / 2)
             self.wait(SLEEP_BETWEEN_REDUCTION_STEPS / 2)
 
-            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr, new_expr_modification)
+            return (replace_subtree_with_tree(current_expr_tree, path_to_redex, {(): new_value_node}), new_expr)
 
         # ─── 1.4) Prepare state variables ────────────────────────────────────────
-        edges = VGroup(*[edge for edge in edge_from_parent.values() if edge is not None])
-        current_expr_modification = lambda expr: expr.scale(0.8).to_edge(RIGHT, buff=1)
-        expr = current_expr_modification(MathTex("((((1 + 2)", " + 3) + 4) + 5) + 6", arg_separator="", **NODE_CONFIG))
+        expr = MathTex("((((1 + 2)", " + 3) + 4) + 5) + 6", arg_separator="", **NODE_CONFIG).scale(0.8).to_edge(RIGHT, buff=1)
 
         # ─── 2.0) Start main animation ───────────────────────────────────────────
-        self.wait(0.3)
-        self.play(Create(VGroup(*tree.values()), lag_ratio=0))
-        self.play(Create(VGroup(edges, expr), lag_ratio=0))
+        self.wait(1)
+        self.play(
+            Create(
+                VGroup(*tree.values(), *[edge for edge in edge_from_parent.values() if edge is not None]),
+                lag_ratio=0
+            ),
+            Create(expr, lag_ratio=0)
+        )
 
         # ((((1 + 2) + 3) + 4) + 5) + 6 → (((3 + 3) + 4) + 5) + 6
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=llll_plus.path,
             current_expr_body_double=MathTex("(((", "(1 + 2)", " + 3) + 4) + 5) + 6", **NODE_CONFIG),
             redex_part_in_expr="(1 + 2)",
             new_expr_parts=("(((", "3", " + 3) + 4) + 5) + 6"),
-            new_value="3",
-            new_expr_right_edge_buff=2
+            new_value="3"
         )
 
         # (((3 + 3) + 4) + 5) + 6 → ((6 + 4) + 5) + 6
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=lll_plus.path,
             current_expr_body_double=MathTex("((", "(3 + 3)", " + 4) + 5) + 6", **NODE_CONFIG),
             redex_part_in_expr="(3 + 3)",
             new_expr_parts=("((", "6", " + 4) + 5) + 6"),
-            new_value="6",
-            new_expr_right_edge_buff=3
+            new_value="6"
         )
 
         # ((6 + 4) + 5) + 6 → (10 + 5) + 6
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=ll_plus.path,
             current_expr_body_double=MathTex("(", "(6 + 4)", " + 5) + 6", **NODE_CONFIG),
             redex_part_in_expr="(6 + 4)",
             new_expr_parts=("(", "10", " + 5) + 6"),
-            new_value="10",
-            new_expr_right_edge_buff=3
+            new_value="10"
         )
 
         # (10 + 5) + 6 → 15 + 6
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=l_plus.path,
             current_expr_body_double=MathTex("(10 + 5)", " + 6", **NODE_CONFIG),
             redex_part_in_expr="(10 + 5)",
             new_expr_parts=("15", "+ 6"),
-            new_value="15",
-            new_expr_right_edge_buff=3
+            new_value="15"
         )
 
         # 15 + 6 → 21
-        tree, expr, current_expr_modification = animate_reduction(
+        tree, expr = animate_reduction(
             current_expr_tree=tree,
             current_expr=expr,
-            current_expr_modification=current_expr_modification,
             path_to_redex=root.path,
             current_expr_body_double=MathTex("15 + 6", **NODE_CONFIG),
             redex_part_in_expr="15 + 6",
             new_expr_parts=("21",),
-            new_value="21",
-            new_expr_right_edge_buff=3
+            new_value="21"
         )
