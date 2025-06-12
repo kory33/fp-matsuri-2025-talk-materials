@@ -209,7 +209,7 @@ class FoldExpressionTree_3625(Scene):
             new_expr_right_edge_buff=3
         )
 
-class FoldExpressionTree_13479(Scene):
+class SearchRedexAndFoldExpressionTree_13479(Scene):
     background_color = WHITE
 
     def construct(self):
@@ -308,7 +308,7 @@ class FoldExpressionTree_13479(Scene):
             self.remove(current_expr); self.add(modified_body_double) # *hard-swap*
 
             # tree traversal to identify the redex
-            self.play(Create(rectangles_along_path[0]))
+            self.play(Create(rectangles_along_path[0]), run_time=SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS)
             self.wait(SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS / 3 * 2)
             for parent_box, child_box in zip(rectangles_along_path, rectangles_along_path[1:]):
                 self.play(
@@ -318,7 +318,15 @@ class FoldExpressionTree_13479(Scene):
                 self.wait(SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS / 3)
             last_rect = rectangles_along_path[-1]
 
-            self.play(ReplacementTransform(last_rect, subtree_box), Create(subtree_expr_box))
+            self.play(
+                # "pop" the "searching" rectangle momentarily and then replace it with the "reducing" rectangle
+                Succession(
+                    last_rect.animate.scale(1.1).set_rate_func(rate_functions.there_and_back),
+                    ReplacementTransform(last_rect, subtree_box)
+                ),
+                Create(subtree_expr_box),
+                run_time=SLEEP_BETWEEN_REDEX_IDENTIFICATION_TRAVERSALS
+            )
             self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION)
             self.play(
                 ReplacementTransform(subtree, new_value_node),
