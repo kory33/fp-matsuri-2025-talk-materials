@@ -840,8 +840,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                         )
                     )
                     
-                    print("next_expr_group", next_expr_group)
-                    print("next_expr_group_at_the_place_of_popped_continuation", next_expr_group_at_the_place_of_popped_continuation)
                     self.play(
                         current_expr_black_nodes[()]
                         .animate.move_to(current_literal_substituted_to_placeholder)
@@ -874,31 +872,17 @@ class EvalWithContinuation_Expression_13479(Scene):
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     
-                    print("current_continuation_stack", current_continuation_stack)
-                    print("current_continuation_stack_vobjs", current_continuation_stack_vobjs)
-                    # raise Exception("foo")
-                    
-                    
-                    
-                    
-                    
-                    
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
-                    print(current_expr_black_nodes[()])
-                    # raise Exception("foo")
-                    
                     
                     
                     self.play(
                         next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
                             center_of_expr
                         ),
-                        VGroup(*current_continuation_stack_vobjs[1:]).animate.shift(
-                            UP * bounding_box_for_continuation_placed_at_origin().height
-                        ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
                     
                     # self.remove(current_expr_black_nodes[()])
                     # self.play(
