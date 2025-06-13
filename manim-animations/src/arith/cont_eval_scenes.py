@@ -394,6 +394,24 @@ class EvalWithContinuation_Expression_13479(Scene):
                 current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
                 *compiled[2].values(),
             ).copy()
+            
+        def somehow_create_continuation_substituted_everything_except_right(
+            cont: ArithCont,
+            current_literal_substituted_to_placeholder,
+        ) -> VGroup:
+            compiled = compile_continuation(
+                cont,
+                decide_color_of_right_edge_reaching=lambda _: WHITE,
+                decide_color_of_right_node=lambda _: WHITE,
+            )
+            scale_and_position_continuation_to_fit_in_bb_at_origin(
+                compiled
+            ).set_x(3)
+            return VGroup(
+                *compiled[0].values(),
+                current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
+                *compiled[2].values(),
+            ).copy()
 
         def compile_continuation(
             cont: ArithCont,
@@ -823,6 +841,11 @@ class EvalWithContinuation_Expression_13479(Scene):
                         popped_continuation,
                         current_literal_substituted_to_placeholder,
                     )
+                    
+                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT = somehow_create_continuation_substituted_everything_except_right(
+                        popped_continuation,
+                        current_literal_substituted_to_placeholder,
+                    )
                         
                     next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
                     next_expr_group = VGroup(
@@ -836,6 +859,16 @@ class EvalWithContinuation_Expression_13479(Scene):
                             next_expr_group_at_the_place_of_popped_continuation,
                             color=ORANGE,
                         )
+                    )
+                    
+                    print("next_expr", next_expr)
+                    print("next_continuation_stack", next_continuation_stack)
+                    # raise Exception("foo")
+                    
+                    next_cont_nodes, next_cont_edges = compile_arith_expr(next_continuation_stack[-1])
+                    next_cont_group = VGroup(
+                        *next_cont_nodes.values(),
+                        *next_cont_edges.values()
                     )
                     
                     self.play(
@@ -881,6 +914,15 @@ class EvalWithContinuation_Expression_13479(Scene):
                     self.remove(continuation_substituted_RIGHT_IS_FOCUSED)
                     self.remove(current_literal_substituted_to_placeholder_NOT_FOCUSED)
                     self.remove(current_literal_substituted_to_placeholder)
+                    
+                    # 2. simultaneously, we create both the "right sub-tree" and the "new continuation"
+                
+                    self.add(
+                        continuation_substituted_EVERYTHING_EXCEPT_RIGHT
+                    )
+                    
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
+                    
                     
                     # FIXME: ↓ ここより下を直す ↓
                     
