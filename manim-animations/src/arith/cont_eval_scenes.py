@@ -378,19 +378,109 @@ class EvalWithContinuation_Expression_13479(Scene):
             edges: dict[PathInExpr, Line]
             
         def somehow_create_continuation_substituted_right_is_purple(
-            popped_continuation,
+            cont: ArithCont,
             current_literal_substituted_to_placeholder,
         ) -> VGroup:
-            compiled_popped_continuation_DUMMY = compile_continuation(
-                popped_continuation,
+            def symbol_for_root_of(cont: ArithCont) -> str:
+                if (
+                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
+                    or cont["tag"] == "cont-then-add-lit-from-left"
+                ):
+                    return "+"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
+                    or cont["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    return "\\times"
+
+            node_vobjs: dict[PathInExpr, MathTex]
+            edge_vobjs: dict[PathInExpr, Line]
+
+            placeholder_node = (
+                Star(outer_radius=0.15)
+                .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
+                .set_color(FOCUSED_SUBTREE_COLOR)
             )
+
+            if (
+                cont["tag"] == "cont-then-add-lit-from-left"
+                or cont["tag"] == "cont-then-mul-lit-from-left"
+            ):
+                # We then have a very simple 3-node continuation
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        node_vobjs[("left",)],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
+                )
+            else:
+                # We have an expression attached to the continuation
+                subexpr_nodes, subexpr_edges = compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=lambda _: FOCUSED_SUBTREE_COLOR,
+                    decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
+                )
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, node)
+                            for path, node in subexpr_nodes.items()
+                        ]
+                    ),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        subexpr_nodes[()],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, edge)
+                            for path, edge in subexpr_edges.items()
+                        ]
+                    ),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
+                )
             scale_and_position_continuation_to_fit_in_bb_at_origin(
-                compiled_popped_continuation_DUMMY
+                compiled
             ).set_x(3)
             return VGroup(
-                *compiled_popped_continuation_DUMMY[0].values(),
-                current_literal_substituted_to_placeholder,
-                *compiled_popped_continuation_DUMMY[2].values(),
+                *compiled[0].values(),
+                current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
+                *compiled[2].values(),
             ).copy()
 
         def compile_continuation(
