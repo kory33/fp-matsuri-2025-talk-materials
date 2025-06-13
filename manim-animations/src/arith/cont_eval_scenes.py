@@ -649,6 +649,9 @@ class EvalWithContinuation_Expression_13479(Scene):
                         ).set_x(3)
                     )
 
+                    font_height_of_popped_continuation_literal = (
+                        popped_continuation_nodes[("left",)].height
+                    )
                     box_around_substituted_continuation = SurroundingRectangle(
                         *popped_continuation_nodes.values(),
                         popped_continuation_placeholder_node[1],
@@ -658,6 +661,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                         current_expr_black_nodes[()]
                         .copy()
                         .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
                     )
                     continuation_substituted = VGroup(
                         *popped_continuation_nodes.values(),
@@ -680,17 +685,19 @@ class EvalWithContinuation_Expression_13479(Scene):
                     self.play(
                         current_expr_black_nodes[()]
                         .animate.move_to(current_literal_substituted_to_placeholder)
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
                         .set_rate_func(rate_functions.smooth),
                         ReplacementTransform(
                             popped_continuation_placeholder_node[1],
                             current_literal_substituted_to_placeholder,
                         ).set_rate_func(rate_functions.ease_in_quart),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS * 2,
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     self.remove(current_expr_black_nodes[()])
                     self.play(
                         Create(box_around_substituted_continuation),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS,
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 1.5,
                     )
                     self.play(
                         AnimationGroup(
@@ -703,14 +710,24 @@ class EvalWithContinuation_Expression_13479(Scene):
                                 rectangle_around_neg_at_the_place_of_popped_continuation,
                             ),
                         ),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS * 2,
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     self.play(
                         FadeOut(
                             rectangle_around_neg_at_the_place_of_popped_continuation
                         ),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS,
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 2,
                     )
+                    self.play(
+                        next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
+                            center_of_expr
+                        ),
+                        VGroup(*current_continuation_stack_vobjs[1:]).animate.shift(
+                            UP * bounding_box_for_continuation_placed_at_origin().height
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
                 else:
                     self.play(
                         FadeOut(root_patmat_final_rect),
