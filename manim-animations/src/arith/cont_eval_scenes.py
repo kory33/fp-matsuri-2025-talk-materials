@@ -729,11 +729,175 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
                 else:
+                    # FIXME: NOTHING IS CORRECT HERE; I AM JUST TESTING OUT
                     self.play(
-                        FadeOut(root_patmat_final_rect),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
+                        Succession(
+                            current_continuation_stack_vobjs[0][0]
+                            .animate.set_color(RED)
+                            .set_rate_func(rate_functions.linear),
+                            AnimationGroup(
+                                FadeOut(root_patmat_final_rect),
+                                Uncreate(current_continuation_stack_vobjs[0][0]),
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
-                    self.wait(SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2)
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 2)
+
+                    self.remove(current_continuation_stack_vobjs[0][1])
+                    compiled_popped_continuation = compile_continuation(
+                        popped_continuation,
+                    )
+                    (
+                        popped_continuation_nodes,
+                        popped_continuation_placeholder_node,
+                        popped_continuation_edges,
+                    ) = compiled_popped_continuation
+                    self.add(
+                        scale_and_position_continuation_to_fit_in_bb_at_origin(
+                            compiled_popped_continuation
+                        ).set_x(3)
+                    )
+
+                    print("popped_continuation_nodes", popped_continuation_nodes)
+                    print("popped_continuation_placeholder_node", popped_continuation_placeholder_node)
+                    print("popped_continuation_edges", popped_continuation_edges)
+                    
+                    font_height_of_popped_continuation_literal = (
+                        popped_continuation_nodes[("right",)].height 
+                        # FIXME: This is too small. I have no idea why.
+                    )
+                    box_around_substituted_continuation = SurroundingRectangle(
+                        *popped_continuation_nodes.values(),
+                        popped_continuation_placeholder_node[1],
+                        color=RED,
+                    )
+                    current_literal_substituted_to_placeholder = (
+                        current_expr_black_nodes[()]
+                        .copy()
+                        .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                    )
+                    
+                    current_literal_substituted_to_placeholder_NOT_FOCUSED = (
+                        current_expr_black_nodes[()]
+                        .copy()
+                        .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(POSTPONED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                    )
+                    continuation_substituted_LEFT_IS_PURPLE = VGroup(
+                        *popped_continuation_nodes.values(),
+                        current_literal_substituted_to_placeholder,
+                        *popped_continuation_edges.values(),
+                    )
+                    continuation_substituted_NOTHING_IS_PURPLE = VGroup(
+                        *popped_continuation_nodes.values(),
+                        current_literal_substituted_to_placeholder_NOT_FOCUSED,
+                        *popped_continuation_edges.values(),
+                    )
+                    continuation_substituted_RIGHT_IS_PURPLE = continuation_substituted_LEFT_IS_PURPLE.copy() # FIXME
+                        
+                    next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
+                    next_expr_group = VGroup(
+                        *next_expr_nodes.values(), *next_expr_edges.values()
+                    )
+                    next_expr_group_at_the_place_of_popped_continuation = (
+                        next_expr_group.move_to(continuation_substituted_LEFT_IS_PURPLE.get_center())
+                    )
+                    rectangle_around_neg_at_the_place_of_popped_continuation = (
+                        SurroundingRectangle(
+                            next_expr_group_at_the_place_of_popped_continuation,
+                            color=RED,
+                        )
+                    )
+                    
+                    print("next_expr_group", next_expr_group)
+                    print("next_expr_group_at_the_place_of_popped_continuation", next_expr_group_at_the_place_of_popped_continuation)
+                    self.play(
+                        current_expr_black_nodes[()]
+                        .animate.move_to(current_literal_substituted_to_placeholder)
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                        .set_rate_func(rate_functions.smooth),
+                        ReplacementTransform(
+                            popped_continuation_placeholder_node[1],
+                            current_literal_substituted_to_placeholder,
+                        ).set_rate_func(rate_functions.ease_in_quart),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    
+                    self.remove(current_expr_black_nodes[()])
+                    
+                    # unfocusing the color is easy: you can just set the entire color to POSTPONED_SUBTREE_COLOR
+                    self.play(
+                        continuation_substituted_LEFT_IS_PURPLE.animate.set_color(POSTPONED_SUBTREE_COLOR),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    
+                    # focusing the other side, in turn, is a bit more tricky:
+                    self.play(
+                        ReplacementTransform(
+                            continuation_substituted_NOTHING_IS_PURPLE,
+                            continuation_substituted_RIGHT_IS_PURPLE,
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    
+                    print("current_continuation_stack", current_continuation_stack)
+                    print("current_continuation_stack_vobjs", current_continuation_stack_vobjs)
+                    # raise Exception("foo")
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+                    
+                    
+                    
+                    
+                    
+                    
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+                    print(current_expr_black_nodes[()])
+                    # raise Exception("foo")
+                    
+                    
+                    
+                    self.play(
+                        next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
+                            center_of_expr
+                        ),
+                        VGroup(*current_continuation_stack_vobjs[1:]).animate.shift(
+                            UP * bounding_box_for_continuation_placed_at_origin().height
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    
+                    
+                    # self.remove(current_expr_black_nodes[()])
+                    # self.play(
+                    #     Create(box_around_substituted_continuation),
+                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 1.5,
+                    # )
+                    # self.play(
+                    #     AnimationGroup(
+                    #         ReplacementTransform(
+                    #             continuation_substituted,
+                    #             next_expr_group_at_the_place_of_popped_continuation,
+                    #         ),
+                    #         ReplacementTransform(
+                    #             box_around_substituted_continuation,
+                    #             rectangle_around_neg_at_the_place_of_popped_continuation,
+                    #         ),
+                    #     ),
+                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    # )
+                    # self.play(
+                    #     FadeOut(
+                    #         rectangle_around_neg_at_the_place_of_popped_continuation
+                    #     ),
+                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 2,
+                    # )
+                    
+                    # self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
 
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
