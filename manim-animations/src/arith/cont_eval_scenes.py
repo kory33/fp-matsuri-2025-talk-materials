@@ -786,8 +786,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
 
                     font_height_of_popped_continuation_literal = (
-                        popped_continuation_nodes[("right",)].height 
-                        # FIXME: This is too small. I have no idea why.
+                        popped_continuation_nodes[()].height 
                     )
                     box_around_substituted_continuation = SurroundingRectangle(
                         *popped_continuation_nodes.values(),
