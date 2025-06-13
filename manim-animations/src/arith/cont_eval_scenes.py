@@ -759,7 +759,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     self.play(
                         Succession(
                             current_continuation_stack_vobjs[0][0]
-                            .animate.set_color(RED)
+                            .animate.set_color(ORANGE)
                             .set_rate_func(rate_functions.linear),
                             AnimationGroup(
                                 FadeOut(root_patmat_final_rect),
@@ -834,7 +834,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     rectangle_around_neg_at_the_place_of_popped_continuation = (
                         SurroundingRectangle(
                             next_expr_group_at_the_place_of_popped_continuation,
-                            color=RED,
+                            color=ORANGE,
                         )
                     )
                     
@@ -869,8 +869,18 @@ class EvalWithContinuation_Expression_13479(Scene):
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
-                    
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+                    
+                    # now, after the color has morphed,
+                    # we have to first visually remove what we have put,
+                    # and instead create two things:
+                    # the right sub-tree, now focused, which should be moved to the center,
+                    # and the new continuation that should remain on the stack
+                    
+                    # 1. first, remove the dangling objects
+                    self.remove(continuation_substituted_RIGHT_IS_FOCUSED)
+                    self.remove(current_literal_substituted_to_placeholder_NOT_FOCUSED)
+                    self.remove(current_literal_substituted_to_placeholder)
                     
                     # FIXME: ↓ ここより下を直す ↓
                     
