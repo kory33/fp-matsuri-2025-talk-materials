@@ -417,17 +417,114 @@ class EvalWithContinuation_Expression_13479(Scene):
             cont: ArithCont,
             current_literal_substituted_to_placeholder,
         ) -> VGroup:
-            compiled = compile_continuation(
-                cont,
-                decide_color_of_right_edge_reaching=lambda _: PURE_RED,
-                decide_color_of_right_node=lambda _: PURE_RED,
+            decide_color_of_right_edge_reaching=lambda _: FOCUSED_SUBTREE_COLOR
+            decide_color_of_right_node=lambda _: FOCUSED_SUBTREE_COLOR
+            def symbol_for_root_of(cont: ArithCont) -> str:
+                if (
+                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
+                    or cont["tag"] == "cont-then-add-lit-from-left"
+                ):
+                    return "+"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
+                    or cont["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    return "\\times"
+
+            node_vobjs: dict[PathInExpr, MathTex]
+            edge_vobjs: dict[PathInExpr, Line]
+
+            placeholder_node = (
+                Star(outer_radius=0.15)
+                .set_fill(PURE_GREEN, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
+                .set_color(PURE_GREEN)
             )
+            
+            if (
+                cont["tag"] == "cont-then-add-lit-from-left"
+                or cont["tag"] == "cont-then-mul-lit-from-left"
+            ):
+                # FIXME
+                raise Exception("hsjoihs is too lazy to implement this right now")
+                """# We then have a very simple 3-node continuation
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(PURE_GREEN),
+                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(PURE_GREEN),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        node_vobjs[("left",)],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(PURE_GREEN),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(PURE_GREEN),
+                }
+                # FIXME: 
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
+                )
+                """
+            else:
+                # We have an expression attached to the continuation
+                subexpr_nodes, subexpr_edges = compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
+                    decide_color_of_node=decide_color_of_right_node,
+                )
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .set_opacity_by_tex(symbol_for_root_of(cont), opacity=0)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(PURE_GREEN),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, node)
+                            for path, node in subexpr_nodes.items()
+                        ]
+                    ),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        {"stroke_width": 0, "color": BLACK},
+                    ).set_color(PURE_GREEN),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        subexpr_nodes[()],
+                        BUFF,
+                        {"stroke_width": 0, "color": BLACK},
+                    ).set_color(PURE_GREEN),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, edge)
+                            for path, edge in subexpr_edges.items()
+                        ]
+                    ),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
+                )
+
             scale_and_position_continuation_to_fit_in_bb_at_origin(
                 compiled
             ).set_x(3)
             return VGroup(
                 *compiled[0].values(),
-                current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
                 *compiled[2].values(),
             ).copy()
 
@@ -954,8 +1051,15 @@ class EvalWithContinuation_Expression_13479(Scene):
                     # FIXME: ↓ ここより下を直す ↓
                     
                     self.play(
-                        next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
+                        continuation_substituted_ONLY_RIGHT.animate.move_to(
                             center_of_expr
+                        ),
+                        # FIXME: 
+                        # This transform is aesthetically wrong, because it does not preserve the structure;
+                        # however, since the deadline is approaching, we will hope that the audience would not notice
+                        ReplacementTransform(
+                            continuation_substituted_ONLY_RIGHT,
+                            next_expr_group_at_the_place_of_popped_continuation.move_to(center_of_expr),
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
