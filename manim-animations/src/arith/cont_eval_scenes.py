@@ -381,99 +381,11 @@ class EvalWithContinuation_Expression_13479(Scene):
             cont: ArithCont,
             current_literal_substituted_to_placeholder,
         ) -> VGroup:
-            def symbol_for_root_of(cont: ArithCont) -> str:
-                if (
-                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
-                    or cont["tag"] == "cont-then-add-lit-from-left"
-                ):
-                    return "+"
-                elif (
-                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
-                    or cont["tag"] == "cont-then-mul-lit-from-left"
-                ):
-                    return "\\times"
-
-            node_vobjs: dict[PathInExpr, MathTex]
-            edge_vobjs: dict[PathInExpr, Line]
-
-            placeholder_node = (
-                Star(outer_radius=0.15)
-                .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
-                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
-                .set_color(FOCUSED_SUBTREE_COLOR)
+            compiled = compile_continuation(
+                cont,
+                decide_color_of_right_edge_reaching=lambda _: FOCUSED_SUBTREE_COLOR,
+                decide_color_of_right_node=lambda _: FOCUSED_SUBTREE_COLOR,
             )
-
-            if (
-                cont["tag"] == "cont-then-add-lit-from-left"
-                or cont["tag"] == "cont-then-mul-lit-from-left"
-            ):
-                # We then have a very simple 3-node continuation
-                node_vobjs = {
-                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
-                    .set_color(POSTPONED_SUBTREE_COLOR),
-                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
-                    .set_color(POSTPONED_SUBTREE_COLOR),
-                }
-                edge_vobjs = {
-                    ("left",): connect(
-                        node_vobjs[()],
-                        node_vobjs[("left",)],
-                        BUFF,
-                        LINE_CONFIG,
-                    ).set_color(POSTPONED_SUBTREE_COLOR),
-                    ("right",): connect(
-                        node_vobjs[()],
-                        placeholder_node,
-                        BUFF,
-                        LINE_CONFIG,
-                    ).set_color(POSTPONED_SUBTREE_COLOR),
-                }
-                compiled = ContinuationCompilationResult(
-                    node_vobjs, (("right",), placeholder_node), edge_vobjs
-                )
-            else:
-                # We have an expression attached to the continuation
-                subexpr_nodes, subexpr_edges = compile_arith_expr(
-                    cont["right"],
-                    decide_color_of_edge_reaching=lambda _: FOCUSED_SUBTREE_COLOR,
-                    decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
-                )
-                node_vobjs = {
-                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
-                    .set_color(POSTPONED_SUBTREE_COLOR),
-                    **dict(
-                        [
-                            ((childDirectionRight,) + path, node)
-                            for path, node in subexpr_nodes.items()
-                        ]
-                    ),
-                }
-                edge_vobjs = {
-                    ("left",): connect(
-                        node_vobjs[()],
-                        placeholder_node,
-                        BUFF,
-                        LINE_CONFIG,
-                    ).set_color(POSTPONED_SUBTREE_COLOR),
-                    ("right",): connect(
-                        node_vobjs[()],
-                        subexpr_nodes[()],
-                        BUFF,
-                        LINE_CONFIG,
-                    ).set_color(POSTPONED_SUBTREE_COLOR),
-                    **dict(
-                        [
-                            ((childDirectionRight,) + path, edge)
-                            for path, edge in subexpr_edges.items()
-                        ]
-                    ),
-                }
-                compiled = ContinuationCompilationResult(
-                    node_vobjs, (("left",), placeholder_node), edge_vobjs
-                )
             scale_and_position_continuation_to_fit_in_bb_at_origin(
                 compiled
             ).set_x(3)
@@ -485,7 +397,13 @@ class EvalWithContinuation_Expression_13479(Scene):
 
         def compile_continuation(
             cont: ArithCont,
+            decide_color_of_right_edge_reaching=None,
+            decide_color_of_right_node=None,
         ) -> ContinuationCompilationResult:
+            if decide_color_of_right_edge_reaching is None:
+                decide_color_of_right_edge_reaching = lambda _: POSTPONED_SUBTREE_COLOR
+            if decide_color_of_right_node is None:
+                decide_color_of_right_node = lambda _: POSTPONED_SUBTREE_COLOR
             def symbol_for_root_of(cont: ArithCont) -> str:
                 if (
                     cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
@@ -535,6 +453,9 @@ class EvalWithContinuation_Expression_13479(Scene):
                         LINE_CONFIG,
                     ).set_color(POSTPONED_SUBTREE_COLOR),
                 }
+                # FIXME: 
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
                 return ContinuationCompilationResult(
                     node_vobjs, (("right",), placeholder_node), edge_vobjs
                 )
@@ -542,8 +463,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                 # We have an expression attached to the continuation
                 subexpr_nodes, subexpr_edges = compile_arith_expr(
                     cont["right"],
-                    decide_color_of_edge_reaching=lambda _: POSTPONED_SUBTREE_COLOR,
-                    decide_color_of_node=lambda _: POSTPONED_SUBTREE_COLOR,
+                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
+                    decide_color_of_node=decide_color_of_right_node,
                 )
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
