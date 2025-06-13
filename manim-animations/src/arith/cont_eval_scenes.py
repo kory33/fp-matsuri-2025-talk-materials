@@ -30,6 +30,7 @@ from manim import (
     Star,
     Rectangle,
     VMobject,
+    Uncreate,
     FadeIn,
 )
 from manim.typing import Vector2D, Vector3D
@@ -274,7 +275,7 @@ class EvalWithContinuation_Expression_13479(Scene):
         POSTPONED_SUBTREE_COLOR = ManimColor("#007783")
 
         SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS = 0.4
-        SLEEP_AFTER_REDEX_IDENTIFICATION = 0.15
+        SLEEP_BETWEEN_CONT_POP_STEPS = 0.6
         SUBTREE_DECOMPOSITION_ANIMATION_DURATION = 1.0
 
         NODE_CONFIG: dict[str, Any] = {"font_size": 60, "color": BLACK}
@@ -394,7 +395,7 @@ class EvalWithContinuation_Expression_13479(Scene):
             node_vobjs: dict[PathInExpr, MathTex]
             edge_vobjs: dict[PathInExpr, Line]
 
-            template_node = (
+            placeholder_node = (
                 Star(outer_radius=0.15)
                 .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
                 .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
@@ -423,13 +424,13 @@ class EvalWithContinuation_Expression_13479(Scene):
                     ).set_color(POSTPONED_SUBTREE_COLOR),
                     ("right",): connect(
                         node_vobjs[()],
-                        template_node,
+                        placeholder_node,
                         BUFF,
                         LINE_CONFIG,
                     ).set_color(POSTPONED_SUBTREE_COLOR),
                 }
                 return ContinuationCompilationResult(
-                    node_vobjs, (("right",), template_node), edge_vobjs
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
                 )
             else:
                 # We have an expression attached to the continuation
@@ -452,7 +453,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                 edge_vobjs = {
                     ("left",): connect(
                         node_vobjs[()],
-                        template_node,
+                        placeholder_node,
                         BUFF,
                         LINE_CONFIG,
                     ).set_color(POSTPONED_SUBTREE_COLOR),
@@ -470,7 +471,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     ),
                 }
                 return ContinuationCompilationResult(
-                    node_vobjs, (("left",), template_node), edge_vobjs
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
                 )
 
         def bounding_box_for_continuation_placed_at_origin() -> Rectangle:
@@ -490,7 +491,7 @@ class EvalWithContinuation_Expression_13479(Scene):
         ) -> VGroup:
             (
                 cont_nodes,
-                cont_template_node,
+                cont_placeholder_node,
                 cont_edges,
             ) = compiled_continuation
 
@@ -499,7 +500,7 @@ class EvalWithContinuation_Expression_13479(Scene):
             tree_group = (
                 VGroup(
                     *cont_nodes.values(),
-                    cont_template_node[1],
+                    cont_placeholder_node[1],
                     *cont_edges.values(),
                 )
                 .set_x(0)
@@ -516,24 +517,30 @@ class EvalWithContinuation_Expression_13479(Scene):
 
         def compile_continuation_stack(
             continuation_stack: Tuple[ArithCont, ...],
-        ) -> Mobject:
-            continuation_boxes: List[Mobject] = []
+        ) -> List[
+            # The first element is the bounding box for the continuation, the second is the compiled continuation
+            Tuple[Rectangle, VGroup]
+        ]:  # The Mobject for the innermost continuation (the one to be executed next) is at the beginning of the returned list
+            continuation_boxes: List[Tuple[Rectangle, VGroup]] = []
 
             for cont in reversed(continuation_stack):
-                group = VGroup(
+                box = bounding_box_for_continuation_placed_at_origin()
+                compiled_and_scaled_cont = (
                     scale_and_position_continuation_to_fit_in_bb_at_origin(
                         compile_continuation(cont)
-                    ),
-                    bounding_box_for_continuation_placed_at_origin(),
-                ).set_x(3)
+                    )
+                )
+
+                group = VGroup(box, compiled_and_scaled_cont)
+                group.set_x(3).set_y(0)
 
                 if continuation_boxes:
                     prev_box = continuation_boxes[-1]
-                    group.set_y(prev_box.get_y() - prev_box.height)
+                    group.set_y(prev_box[0].get_y() - prev_box[0].height)
 
-                continuation_boxes.append(group)
+                continuation_boxes.append((box, compiled_and_scaled_cont))
 
-            return VGroup(*continuation_boxes)
+            return continuation_boxes
 
         # main animation
         self.wait(0.3)
@@ -550,8 +557,6 @@ class EvalWithContinuation_Expression_13479(Scene):
             )
         )
 
-        print(trace)
-
         center_of_expr = initial_expr_vgroup.get_center()
         # invariant: black expr tree and continuation stack are drawn and center_of_expr is the center of the expr tree
         for (current_expr, current_continuation_stack), (
@@ -566,7 +571,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                 *current_expr_black_edges.values(),
             )
             current_expr_black_vgroup.move_to(center_of_expr)
-            current_continuation_stack_vobj = compile_continuation_stack(
+            current_continuation_stack_vobjs = compile_continuation_stack(
                 current_continuation_stack,
             )
 
@@ -574,7 +579,7 @@ class EvalWithContinuation_Expression_13479(Scene):
             # its purpose is to force current_expr_black_vgroup being the object drawn on the canvas
             self.clear()
             self.add(current_expr_black_vgroup)
-            self.add(current_continuation_stack_vobj)
+            self.add(VGroup(*current_continuation_stack_vobjs))
 
             root_patmat_rect_0 = SurroundingRectangle(
                 current_expr_black_nodes[()], color=BLUE_E, buff=0.15
@@ -606,12 +611,113 @@ class EvalWithContinuation_Expression_13479(Scene):
                         run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
                     )
                 )
-                self.wait(SLEEP_AFTER_REDEX_IDENTIFICATION / 2)
-                self.play(
-                    FadeOut(root_patmat_final_rect),
-                    run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
-                )
-                self.wait(SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2)
+
+                popped_continuation = current_continuation_stack[-1]
+                if (
+                    popped_continuation["tag"] == "cont-then-add-lit-from-left"
+                    or popped_continuation["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    # in this path, we have a continuation that adds or multiplies the literal (= continuation["left"]) from the left
+                    # so we "open" the top box of the continuation stack, substitute the literal (= current_expr["value"]) into the placeholder node,
+                    # reduce the atomic application and then load the result to the control string
+                    self.play(
+                        Succession(
+                            current_continuation_stack_vobjs[0][0]
+                            .animate.set_color(ORANGE)
+                            .set_rate_func(rate_functions.linear),
+                            AnimationGroup(
+                                FadeOut(root_patmat_final_rect),
+                                Uncreate(current_continuation_stack_vobjs[0][0]),
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 2)
+
+                    self.remove(current_continuation_stack_vobjs[0][1])
+                    compiled_popped_continuation = compile_continuation(
+                        popped_continuation,
+                    )
+                    (
+                        popped_continuation_nodes,
+                        popped_continuation_placeholder_node,
+                        popped_continuation_edges,
+                    ) = compiled_popped_continuation
+                    self.add(
+                        scale_and_position_continuation_to_fit_in_bb_at_origin(
+                            compiled_popped_continuation
+                        ).set_x(3)
+                    )
+
+                    box_around_substituted_continuation = SurroundingRectangle(
+                        *popped_continuation_nodes.values(),
+                        popped_continuation_placeholder_node[1],
+                        color=ORANGE,
+                    )
+                    current_literal_substituted_to_placeholder = (
+                        current_expr_black_nodes[()]
+                        .copy()
+                        .move_to(popped_continuation_placeholder_node[1])
+                    )
+                    continuation_substituted = VGroup(
+                        *popped_continuation_nodes.values(),
+                        current_literal_substituted_to_placeholder,
+                        *popped_continuation_edges.values(),
+                    )
+                    next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
+                    next_expr_group = VGroup(
+                        *next_expr_nodes.values(), *next_expr_edges.values()
+                    )
+                    next_expr_group_at_the_place_of_popped_continuation = (
+                        next_expr_group.move_to(continuation_substituted.get_center())
+                    )
+                    rectangle_around_neg_at_the_place_of_popped_continuation = (
+                        SurroundingRectangle(
+                            next_expr_group_at_the_place_of_popped_continuation,
+                            color=ORANGE,
+                        )
+                    )
+                    self.play(
+                        current_expr_black_nodes[()]
+                        .animate.move_to(current_literal_substituted_to_placeholder)
+                        .set_rate_func(rate_functions.smooth),
+                        ReplacementTransform(
+                            popped_continuation_placeholder_node[1],
+                            current_literal_substituted_to_placeholder,
+                        ).set_rate_func(rate_functions.ease_in_quart),
+                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS * 2,
+                    )
+                    self.remove(current_expr_black_nodes[()])
+                    self.play(
+                        Create(box_around_substituted_continuation),
+                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS,
+                    )
+                    self.play(
+                        AnimationGroup(
+                            ReplacementTransform(
+                                continuation_substituted,
+                                next_expr_group_at_the_place_of_popped_continuation,
+                            ),
+                            ReplacementTransform(
+                                box_around_substituted_continuation,
+                                rectangle_around_neg_at_the_place_of_popped_continuation,
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS * 2,
+                    )
+                    self.play(
+                        FadeOut(
+                            rectangle_around_neg_at_the_place_of_popped_continuation
+                        ),
+                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS,
+                    )
+                else:
+                    self.play(
+                        FadeOut(root_patmat_final_rect),
+                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
+                    )
+                    self.wait(SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2)
+
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
                 # and push a continuation to the stack
@@ -725,7 +831,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                 )
                 (
                     new_continuation_nodes,
-                    new_continuation_template_node,
+                    new_continuation_placeholder_node,
                     new_continuation_edges,
                 ) = compiled_new_continuation
 
@@ -736,7 +842,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                 # We successfully partitioned the tree into the immediately interesting subtree
                 # and the postponed subtree. Now we need to do a few things at once:
                 # 0. reset the continuation block so that it is ready to be animated
-                self.remove(current_continuation_stack_vobj)
+                self.remove(VGroup(*current_continuation_stack_vobjs))
                 self.play(
                     AnimationGroup(
                         # 1. fade out the root pattern match rectangle
@@ -790,13 +896,11 @@ class EvalWithContinuation_Expression_13479(Scene):
                                     == focus_subtree_path_prefix
                                 ],
                             ),
-                            new_continuation_template_node[1],
+                            new_continuation_placeholder_node[1],
                         ),
                         # 4. Prepare a bounding box to contain the continuation and move the entire continuation stack one unit down
                         Succession(
-                            compile_continuation_stack(
-                                current_continuation_stack,
-                            )
+                            VGroup(*current_continuation_stack_vobjs)
                             .animate.shift(
                                 DOWN
                                 * bounding_box_for_continuation_placed_at_origin().height
