@@ -377,7 +377,7 @@ class EvalWithContinuation_Expression_13479(Scene):
             placeholder_node: Tuple[PathInExpr, Mobject]
             edges: dict[PathInExpr, Line]
             
-        def somehow_create_continuation_substituted_right_is_purple(
+        def somehow_create_continuation_substituted_right_is_focused(
             cont: ArithCont,
             current_literal_substituted_to_placeholder,
         ) -> VGroup:
@@ -810,19 +810,18 @@ class EvalWithContinuation_Expression_13479(Scene):
                         .set_color(POSTPONED_SUBTREE_COLOR)
                         .scale_to_fit_height(font_height_of_popped_continuation_literal)
                     )
-                    continuation_substituted_LEFT_IS_PURPLE = VGroup(
+                    continuation_substituted_LEFT_IS_FOCUSED = VGroup(
                         *popped_continuation_nodes.values(),
                         current_literal_substituted_to_placeholder,
                         *popped_continuation_edges.values(),
                     )
-                    continuation_substituted_NOTHING_IS_PURPLE = VGroup(
+                    continuation_substituted_NOTHING_IS_FOCUSED = VGroup(
                         *popped_continuation_nodes.values(),
                         current_literal_substituted_to_placeholder_NOT_FOCUSED,
                         *popped_continuation_edges.values(),
                     )
                     
-                    # FIXME: SOMEHOW CREATE continuation_substituted_RIGHT_IS_PURPLE
-                    continuation_substituted_RIGHT_IS_PURPLE = somehow_create_continuation_substituted_right_is_purple(
+                    continuation_substituted_RIGHT_IS_FOCUSED = somehow_create_continuation_substituted_right_is_focused(
                         popped_continuation,
                         current_literal_substituted_to_placeholder,
                     )
@@ -832,7 +831,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                         *next_expr_nodes.values(), *next_expr_edges.values()
                     )
                     next_expr_group_at_the_place_of_popped_continuation = (
-                        next_expr_group.move_to(continuation_substituted_LEFT_IS_PURPLE.get_center())
+                        next_expr_group.move_to(continuation_substituted_LEFT_IS_FOCUSED.get_center())
                     )
                     rectangle_around_neg_at_the_place_of_popped_continuation = (
                         SurroundingRectangle(
@@ -860,7 +859,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     
                     # unfocusing the color is easy: you can just set the entire color to POSTPONED_SUBTREE_COLOR
                     self.play(
-                        continuation_substituted_LEFT_IS_PURPLE.animate.set_color(POSTPONED_SUBTREE_COLOR),
+                        continuation_substituted_LEFT_IS_FOCUSED.animate.set_color(POSTPONED_SUBTREE_COLOR),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     
@@ -869,8 +868,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                     # focusing the other side, in turn, is a bit more tricky:
                     self.play(
                         ReplacementTransform(
-                            continuation_substituted_NOTHING_IS_PURPLE,
-                            continuation_substituted_RIGHT_IS_PURPLE,
+                            continuation_substituted_NOTHING_IS_FOCUSED,
+                            continuation_substituted_RIGHT_IS_FOCUSED,
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
