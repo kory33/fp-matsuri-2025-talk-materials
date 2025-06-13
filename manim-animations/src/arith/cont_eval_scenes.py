@@ -1047,16 +1047,14 @@ class EvalWithContinuation_Expression_13479(Scene):
                     
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
                     
-                    
-                    # FIXME: ↓ ここより下を直す ↓
-                    
                     self.play(
                         continuation_substituted_ONLY_RIGHT.animate.move_to(
                             center_of_expr
                         ),
                         # FIXME: 
-                        # This transform is aesthetically wrong, because it does not preserve the structure;
-                        # however, since the deadline is approaching, we will hope that the audience would not notice
+                        # This transform is aesthetically wrong, because it does not preserve the structure.
+                        # The correct way is to modify the ONLY_RIGHT so that its parents are nonexistent, rather than being merely transparent.
+                        # However, since the deadline is approaching, we will hope that the audience would not notice
                         ReplacementTransform(
                             continuation_substituted_ONLY_RIGHT,
                             next_expr_group_at_the_place_of_popped_continuation.move_to(center_of_expr),
@@ -1066,6 +1064,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
                     
+                    # FIXME: ↓ ここより下を直す ↓
                     # self.remove(current_expr_black_nodes[()])
                     # self.play(
                     #     Create(box_around_substituted_continuation),
