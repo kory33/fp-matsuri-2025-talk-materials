@@ -398,12 +398,108 @@ class EvalWithContinuation_Expression_13479(Scene):
         def somehow_create_continuation_substituted_everything_except_right(
             cont: ArithCont,
             current_literal_substituted_to_placeholder,
+            star_shown: bool,
         ) -> VGroup:
-            compiled = compile_continuation(
-                cont,
-                decide_color_of_right_edge_reaching=lambda _: WHITE,
-                decide_color_of_right_node=lambda _: WHITE,
+            
+            decide_color_of_right_edge_reaching=lambda _: WHITE
+            decide_color_of_right_node=lambda _: WHITE
+            
+            def symbol_for_root_of(cont: ArithCont) -> str:
+                if (
+                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
+                    or cont["tag"] == "cont-then-add-lit-from-left"
+                ):
+                    return "+"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
+                    or cont["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    return "\\times"
+
+            node_vobjs: dict[PathInExpr, MathTex]
+            edge_vobjs: dict[PathInExpr, Line]
+
+            placeholder_node = (
+                Star(outer_radius=0.15)
+                .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
+                .set_color(FOCUSED_SUBTREE_COLOR)
             )
+
+            if (
+                cont["tag"] == "cont-then-add-lit-from-left"
+                or cont["tag"] == "cont-then-mul-lit-from-left"
+            ):
+                # We then have a very simple 3-node continuation
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        node_vobjs[("left",)],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                # FIXME: 
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
+                )
+            else:
+                # We have an expression attached to the continuation
+                subexpr_nodes, subexpr_edges = compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
+                    decide_color_of_node=decide_color_of_right_node,
+                )
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, node)
+                            for path, node in subexpr_nodes.items()
+                        ]
+                    ),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        subexpr_nodes[()],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, edge)
+                            for path, edge in subexpr_edges.items()
+                        ]
+                    ),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
+                )
             scale_and_position_continuation_to_fit_in_bb_at_origin(
                 compiled
             ).set_x(3)
@@ -957,9 +1053,16 @@ class EvalWithContinuation_Expression_13479(Scene):
                         current_literal_substituted_to_placeholder,
                     )
                     
-                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT = somehow_create_continuation_substituted_everything_except_right(
+                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN = somehow_create_continuation_substituted_everything_except_right(
                         popped_continuation,
                         current_literal_substituted_to_placeholder,
+                        star_shown=False,
+                    )
+                    
+                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_SHOWN = somehow_create_continuation_substituted_everything_except_right(
+                        popped_continuation,
+                        current_literal_substituted_to_placeholder,
+                        star_shown=True,
                     )
                     
                     continuation_substituted_ONLY_RIGHT = somehow_create_continuation_substituted_only_right(
@@ -1038,7 +1141,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     # 2. simultaneously, we create both the "right sub-tree" and the "new continuation"
                 
                     self.add(
-                        continuation_substituted_EVERYTHING_EXCEPT_RIGHT
+                        continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN
                     )
                     
                     self.add(
@@ -1050,6 +1153,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                     self.play(
                         continuation_substituted_ONLY_RIGHT.animate.move_to(
                             center_of_expr
+                        ),
+                        ReplacementTransform(
+                            continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN,
+                            continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_SHOWN,
                         ),
                         # FIXME: 
                         # This transform is aesthetically wrong, because it does not preserve the structure.
