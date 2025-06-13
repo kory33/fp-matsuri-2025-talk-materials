@@ -3,6 +3,7 @@ from typing import (
     Any,
     Callable,
     Iterable,
+    List,
     NamedTuple,
     Union,
     Tuple,
@@ -27,6 +28,9 @@ from manim import (
     config,
     AnimationGroup,
     Star,
+    Rectangle,
+    VMobject,
+    FadeIn,
 )
 from manim.typing import Vector2D, Vector3D
 from manim.utils.color.manim_colors import *
@@ -469,6 +473,68 @@ class EvalWithContinuation_Expression_13479(Scene):
                     node_vobjs, (("left",), template_node), edge_vobjs
                 )
 
+        def bounding_box_for_continuation_placed_at_origin() -> Rectangle:
+            return (
+                Rectangle(
+                    height=2.5,
+                    width=3.5,
+                    color=ManimColor("#707070"),
+                )
+                .set_x(0)
+                .set_y(0)
+            )
+
+        def scale_and_position_continuation_to_fit_in_bb_at_origin(
+            # this argument will be modified in-place
+            compiled_continuation: ContinuationCompilationResult,
+        ) -> VGroup:
+            (
+                cont_nodes,
+                cont_template_node,
+                cont_edges,
+            ) = compiled_continuation
+
+            # we will not draw this
+            expected_bounding_box = bounding_box_for_continuation_placed_at_origin()
+            tree_group = (
+                VGroup(
+                    *cont_nodes.values(),
+                    cont_template_node[1],
+                    *cont_edges.values(),
+                )
+                .set_x(0)
+                .set_y(0)
+            )
+            tree_group_x_scaling_factor = expected_bounding_box.width / tree_group.width
+            tree_group_y_scaling_factor = (
+                expected_bounding_box.height / tree_group.height
+            )
+            tree_group.scale(
+                min(tree_group_x_scaling_factor, tree_group_y_scaling_factor) * 0.8
+            )
+            return tree_group
+
+        def compile_continuation_stack(
+            continuation_stack: Tuple[ArithCont, ...],
+        ) -> Mobject:
+            continuation_boxes: List[Mobject] = []
+
+            for cont in reversed(continuation_stack):
+                group = VGroup(
+                    scale_and_position_continuation_to_fit_in_bb_at_origin(
+                        compile_continuation(cont)
+                    ),
+                    bounding_box_for_continuation_placed_at_origin(),
+                ).set_x(3)
+
+                if continuation_boxes:
+                    prev_box = continuation_boxes[-1]
+                    group.set_y(prev_box.get_y() - prev_box.height)
+
+                continuation_boxes.append(group)
+
+            return VGroup(*continuation_boxes)
+
         # main animation
         self.wait(0.3)
         initial_expr_nodes, initial_expr_edges = compile_arith_expr(
@@ -484,6 +550,8 @@ class EvalWithContinuation_Expression_13479(Scene):
             )
         )
 
+        print(trace)
+
         center_of_expr = initial_expr_vgroup.get_center()
         # invariant: black expr tree and continuation stack are drawn and center_of_expr is the center of the expr tree
         for (current_expr, current_continuation_stack), (
@@ -498,11 +566,15 @@ class EvalWithContinuation_Expression_13479(Scene):
                 *current_expr_black_edges.values(),
             )
             current_expr_black_vgroup.move_to(center_of_expr)
+            current_continuation_stack_vobj = compile_continuation_stack(
+                current_continuation_stack,
+            )
 
             # this should be a no-op visually given the invariant
             # its purpose is to force current_expr_black_vgroup being the object drawn on the canvas
             self.clear()
             self.add(current_expr_black_vgroup)
+            self.add(current_continuation_stack_vobj)
 
             root_patmat_rect_0 = SurroundingRectangle(
                 current_expr_black_nodes[()], color=BLUE_E, buff=0.15
@@ -648,22 +720,23 @@ class EvalWithContinuation_Expression_13479(Scene):
                 )
                 next_expr_focused_color_vgroup.move_to(center_of_expr)
 
+                compiled_new_continuation = compile_continuation(
+                    next_continuation_stack[-1],
+                )
                 (
                     new_continuation_nodes,
                     new_continuation_template_node,
                     new_continuation_edges,
-                ) = compile_continuation(
-                    next_continuation_stack[-1],
-                )
-                new_continuation_vgroup = VGroup(
-                    *new_continuation_nodes.values(),
-                    new_continuation_template_node[1],
-                    *new_continuation_edges.values(),
-                )
-                new_continuation_vgroup.move_to(RIGHT * 4)
+                ) = compiled_new_continuation
+
+                scale_and_position_continuation_to_fit_in_bb_at_origin(
+                    compiled_new_continuation
+                ).set_x(3)
 
                 # We successfully partitioned the tree into the immediately interesting subtree
                 # and the postponed subtree. Now we need to do a few things at once:
+                # 0. reset the continuation block so that it is ready to be animated
+                self.remove(current_continuation_stack_vobj)
                 self.play(
                     AnimationGroup(
                         # 1. fade out the root pattern match rectangle
@@ -719,6 +792,22 @@ class EvalWithContinuation_Expression_13479(Scene):
                             ),
                             new_continuation_template_node[1],
                         ),
+                        # 4. Prepare a bounding box to contain the continuation and move the entire continuation stack one unit down
+                        Succession(
+                            compile_continuation_stack(
+                                current_continuation_stack,
+                            )
+                            .animate.shift(
+                                DOWN
+                                * bounding_box_for_continuation_placed_at_origin().height
+                            )
+                            .set_rate_func(rate_functions.ease_out_quart),
+                            FadeIn(
+                                bounding_box_for_continuation_placed_at_origin().set_x(
+                                    3
+                                )
+                            ),
+                        ),
                     ),
                     run_time=SUBTREE_DECOMPOSITION_ANIMATION_DURATION / 5 * 3,
                 )
@@ -743,7 +832,5 @@ class EvalWithContinuation_Expression_13479(Scene):
                 else:
                     # no decoloring to do, we just wait
                     self.wait(SUBTREE_DECOMPOSITION_ANIMATION_DURATION)
-
-            pass
 
         self.wait(1)
