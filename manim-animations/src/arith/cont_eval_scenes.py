@@ -401,9 +401,6 @@ class EvalWithContinuation_Expression_13479(Scene):
             star_shown: bool,
         ) -> VGroup:
             
-            decide_color_of_right_edge_reaching=lambda _: WHITE
-            decide_color_of_right_node=lambda _: WHITE
-            
             def symbol_for_root_of(cont: ArithCont) -> str:
                 if (
                     cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
@@ -430,7 +427,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                 cont["tag"] == "cont-then-add-lit-from-left"
                 or cont["tag"] == "cont-then-mul-lit-from-left"
             ):
-                # We then have a very simple 3-node continuation
+                raise Exception("hsjoihs is too lazy to implement this right now")
+                """# We then have a very simple 3-node continuation
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
                     .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
@@ -459,12 +457,36 @@ class EvalWithContinuation_Expression_13479(Scene):
                 compiled = ContinuationCompilationResult(
                     node_vobjs, (("right",), placeholder_node), edge_vobjs
                 )
+                """
             else:
-                # We have an expression attached to the continuation
+                # FIXME: 
+                # This should be a white star when star_shown is False.
+                # This should be a FOCUSED_SUBTREE_COLOR star when star_shown is True.
+                
+                placeholder_node2 = (
+                    Star(outer_radius=0.15)
+                    .set_fill(FOCUSED_SUBTREE_COLOR if star_shown else WHITE, opacity=1)
+                    .move_to(vector2d_to_vector3d(cont["right"]["symbol_pos"]))
+                    .set_color(FOCUSED_SUBTREE_COLOR if star_shown else WHITE)
+                )
+                
+                # subexpr_nodes, subexpr_edges = ({(): placeholder_node2}, {})
+                
+                print(
+                    "COMPILE ARITH EXPR",
+                    compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=lambda _: WHITE,
+                    decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
+                )
+                )
+                
+                print("PLACEHOLDER NODE2", placeholder_node2)
+                
                 subexpr_nodes, subexpr_edges = compile_arith_expr(
                     cont["right"],
-                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
-                    decide_color_of_node=decide_color_of_right_node,
+                    decide_color_of_edge_reaching=lambda _: WHITE,
+                    decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
                 )
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
