@@ -759,10 +759,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                         ).set_x(3)
                     )
 
-                    print("popped_continuation_nodes", popped_continuation_nodes)
-                    print("popped_continuation_placeholder_node", popped_continuation_placeholder_node)
-                    print("popped_continuation_edges", popped_continuation_edges)
-                    
                     font_height_of_popped_continuation_literal = (
                         popped_continuation_nodes[("right",)].height 
                         # FIXME: This is too small. I have no idea why.
@@ -797,7 +793,20 @@ class EvalWithContinuation_Expression_13479(Scene):
                         current_literal_substituted_to_placeholder_NOT_FOCUSED,
                         *popped_continuation_edges.values(),
                     )
-                    continuation_substituted_RIGHT_IS_PURPLE = continuation_substituted_LEFT_IS_PURPLE.copy() # FIXME
+                    
+                    # FIXME: SOMEHOW CREATE continuation_substituted_RIGHT_IS_PURPLE
+                    if True:
+                        compiled_popped_continuation_DUMMY = compile_continuation(
+                            popped_continuation,
+                        )
+                        scale_and_position_continuation_to_fit_in_bb_at_origin(
+                            compiled_popped_continuation_DUMMY
+                        ).set_x(3)
+                        continuation_substituted_RIGHT_IS_PURPLE = VGroup(
+                            *compiled_popped_continuation_DUMMY[0].values(),
+                            current_literal_substituted_to_placeholder,
+                            *compiled_popped_continuation_DUMMY[2].values(),
+                        ).copy()
                         
                     next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
                     next_expr_group = VGroup(
@@ -836,6 +845,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+                    
                     # focusing the other side, in turn, is a bit more tricky:
                     self.play(
                         ReplacementTransform(
@@ -848,7 +859,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                     print("current_continuation_stack", current_continuation_stack)
                     print("current_continuation_stack_vobjs", current_continuation_stack_vobjs)
                     # raise Exception("foo")
-                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
                     
                     
                     
