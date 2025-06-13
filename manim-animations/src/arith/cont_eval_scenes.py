@@ -412,6 +412,24 @@ class EvalWithContinuation_Expression_13479(Scene):
                 current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
                 *compiled[2].values(),
             ).copy()
+            
+        def somehow_create_continuation_substituted_only_right(
+            cont: ArithCont,
+            current_literal_substituted_to_placeholder,
+        ) -> VGroup:
+            compiled = compile_continuation(
+                cont,
+                decide_color_of_right_edge_reaching=lambda _: PURE_RED,
+                decide_color_of_right_node=lambda _: PURE_RED,
+            )
+            scale_and_position_continuation_to_fit_in_bb_at_origin(
+                compiled
+            ).set_x(3)
+            return VGroup(
+                *compiled[0].values(),
+                current_literal_substituted_to_placeholder.set_color(POSTPONED_SUBTREE_COLOR),
+                *compiled[2].values(),
+            ).copy()
 
         def compile_continuation(
             cont: ArithCont,
@@ -846,6 +864,11 @@ class EvalWithContinuation_Expression_13479(Scene):
                         popped_continuation,
                         current_literal_substituted_to_placeholder,
                     )
+                    
+                    continuation_substituted_ONLY_RIGHT = somehow_create_continuation_substituted_only_right(
+                        popped_continuation,
+                        current_literal_substituted_to_placeholder,
+                    )
                         
                     next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
                     next_expr_group = VGroup(
@@ -919,6 +942,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                 
                     self.add(
                         continuation_substituted_EVERYTHING_EXCEPT_RIGHT
+                    )
+                    
+                    self.add(
+                        continuation_substituted_ONLY_RIGHT
                     )
                     
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
