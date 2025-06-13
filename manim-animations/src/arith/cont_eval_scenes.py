@@ -376,6 +376,22 @@ class EvalWithContinuation_Expression_13479(Scene):
             non_placeholder_nodes: dict[PathInExpr, MathTex]
             placeholder_node: Tuple[PathInExpr, Mobject]
             edges: dict[PathInExpr, Line]
+            
+        def somehow_create_continuation_substituted_right_is_purple(
+            popped_continuation,
+            current_literal_substituted_to_placeholder,
+        ) -> VGroup:
+            compiled_popped_continuation_DUMMY = compile_continuation(
+                popped_continuation,
+            )
+            scale_and_position_continuation_to_fit_in_bb_at_origin(
+                compiled_popped_continuation_DUMMY
+            ).set_x(3)
+            return VGroup(
+                *compiled_popped_continuation_DUMMY[0].values(),
+                current_literal_substituted_to_placeholder,
+                *compiled_popped_continuation_DUMMY[2].values(),
+            ).copy()
 
         def compile_continuation(
             cont: ArithCont,
@@ -795,18 +811,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                     
                     # FIXME: SOMEHOW CREATE continuation_substituted_RIGHT_IS_PURPLE
-                    if True:
-                        compiled_popped_continuation_DUMMY = compile_continuation(
-                            popped_continuation,
-                        )
-                        scale_and_position_continuation_to_fit_in_bb_at_origin(
-                            compiled_popped_continuation_DUMMY
-                        ).set_x(3)
-                        continuation_substituted_RIGHT_IS_PURPLE = VGroup(
-                            *compiled_popped_continuation_DUMMY[0].values(),
-                            current_literal_substituted_to_placeholder,
-                            *compiled_popped_continuation_DUMMY[2].values(),
-                        ).copy()
+                    continuation_substituted_RIGHT_IS_PURPLE = somehow_create_continuation_substituted_right_is_purple(
+                        popped_continuation,
+                        current_literal_substituted_to_placeholder,
+                    )
                         
                     next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
                     next_expr_group = VGroup(
