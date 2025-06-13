@@ -756,7 +756,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
                 else:
-                    # FIXME: NOTHING IS CORRECT HERE; I AM JUST TESTING OUT
                     self.play(
                         Succession(
                             current_continuation_stack_vobjs[0][0]
@@ -793,7 +792,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     box_around_substituted_continuation = SurroundingRectangle(
                         *popped_continuation_nodes.values(),
                         popped_continuation_placeholder_node[1],
-                        color=RED,
+                        color=ORANGE,
                     )
                     current_literal_substituted_to_placeholder = (
                         current_expr_black_nodes[()]
@@ -874,6 +873,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
                     
+                    # FIXME: ↓ ここより下を直す ↓
                     
                     self.play(
                         next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
@@ -890,26 +890,24 @@ class EvalWithContinuation_Expression_13479(Scene):
                     #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 1.5,
                     # )
                     # self.play(
-                    #     AnimationGroup(
-                    #         ReplacementTransform(
-                    #             continuation_substituted,
-                    #             next_expr_group_at_the_place_of_popped_continuation,
-                    #         ),
-                    #         ReplacementTransform(
-                    #             box_around_substituted_continuation,
-                    #             rectangle_around_neg_at_the_place_of_popped_continuation,
-                    #         ),
+                    #     ReplacementTransform(
+                    #         continuation_substituted_RIGHT_IS_FOCUSED,
+                    #         next_continuation_stack[0],
                     #     ),
                     #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     # )
-                    # self.play(
-                    #     FadeOut(
-                    #         rectangle_around_neg_at_the_place_of_popped_continuation
-                    #     ),
-                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 2,
-                    # )
                     
-                    # self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
+                    # FIXME: wrong size
+                    self.play(
+                        FadeIn(
+                            box_around_substituted_continuation 
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    
+                    # FIXME: ↑ ここより上を直す ↑
+                    
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS)
 
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
