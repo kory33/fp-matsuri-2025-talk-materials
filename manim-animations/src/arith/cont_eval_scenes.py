@@ -26,6 +26,7 @@ from manim import (
     FadeOut,
     config,
     AnimationGroup,
+    Star,
 )
 from manim.typing import Vector2D, Vector3D
 from manim.utils.color.manim_colors import *
@@ -341,9 +342,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                     (
                         path,
                         MathTex(symbol_for_root_of(subexpr), **NODE_CONFIG)
-                        .move_to(ae_root_pos(subexpr) * 0.8)
-                        .set_color(decide_color_of_node(path))
-                        .scale(0.8),
+                        .move_to(ae_root_pos(subexpr))
+                        .set_color(decide_color_of_node(path)),
                     )
                     for path, subexpr in ae_zip_nodes_with_paths(expr)
                 ]
@@ -369,7 +369,7 @@ class EvalWithContinuation_Expression_13479(Scene):
 
         class ContinuationCompilationResult(NamedTuple):
             non_placeholder_nodes: dict[PathInExpr, MathTex]
-            placeholder_node: Tuple[PathInExpr, MathTex]
+            placeholder_node: Tuple[PathInExpr, Mobject]
             edges: dict[PathInExpr, Line]
 
         def compile_continuation(
@@ -391,10 +391,10 @@ class EvalWithContinuation_Expression_13479(Scene):
             edge_vobjs: dict[PathInExpr, Line]
 
             template_node = (
-                MathTex("\\star", **NODE_CONFIG)
-                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]) * 0.8)
+                Star(outer_radius=0.15)
+                .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
                 .set_color(FOCUSED_SUBTREE_COLOR)
-                .scale(0.8)
             )
 
             if (
@@ -404,13 +404,11 @@ class EvalWithContinuation_Expression_13479(Scene):
                 # We then have a very simple 3-node continuation
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]) * 0.8)
-                    .set_color(POSTPONED_SUBTREE_COLOR)
-                    .scale(0.8),
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
                     ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["literal_pos"]) * 0.8)
-                    .set_color(POSTPONED_SUBTREE_COLOR)
-                    .scale(0.8),
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
                 }
                 edge_vobjs = {
                     ("left",): connect(
@@ -438,9 +436,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                 )
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
-                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]) * 0.8)
-                    .set_color(POSTPONED_SUBTREE_COLOR)
-                    .scale(0.8),
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
                     **dict(
                         [
                             ((childDirectionRight,) + path, node)
@@ -482,7 +479,7 @@ class EvalWithContinuation_Expression_13479(Scene):
         )
         self.play(
             Create(
-                initial_expr_vgroup.to_edge(LEFT, buff=1),
+                initial_expr_vgroup.to_edge(LEFT, buff=1).set_y(0),
                 lag_ratio=0,
             )
         )
