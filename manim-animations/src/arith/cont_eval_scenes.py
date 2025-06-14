@@ -388,7 +388,7 @@ def trace_evaluation_of(expr_init: ArithExpr) -> MachineTrace:
                     )
 
 
-class EvalWithContinuation_Expression_1562025(Scene):
+class EvalWithContinuation_Expression_6_15_2025(Scene):
     background_color = WHITE
 
     def construct(self):
