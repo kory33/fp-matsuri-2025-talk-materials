@@ -244,7 +244,7 @@ def trace_evaluation_of(expr_init: ArithExpr) -> MachineTrace:
                 elif continuation["tag"] == "cont-then-sub-lit-from-left":
                     current_expr_of_interest = {
                         "tag": "aexpr-int-lit",
-                        "value": lit - continuation["left"],
+                        "value": continuation["left"] - lit,
                         "symbol_pos": current_expr_of_interest["symbol_pos"],
                     }
                     current_continuation_stack = new_stack
@@ -357,19 +357,19 @@ class EvalWithContinuation_Expression_1562025(Scene):
 
         trace = trace_evaluation_of(
             {
-                "tag": "aexpr-add",
+                "tag": "aexpr-mul",
                 "left": {
                     "tag": "aexpr-add",
                     "left": {
                         "tag": "aexpr-sub",
                         "left": {
                             "tag": "aexpr-int-lit",
-                            "value": 15,
+                            "value": 6,
                             "symbol_pos": np.array((-3.5, -1)),
                         },
                         "right": {
                             "tag": "aexpr-int-lit",
-                            "value": 6,
+                            "value": 15,
                             "symbol_pos": np.array((-2, -1)),
                         },
                         "symbol_pos": np.array((-2.75, 1)),
@@ -379,12 +379,12 @@ class EvalWithContinuation_Expression_1562025(Scene):
                         "left": {
                             "tag": "aexpr-int-lit",
                             "value": 2,
-                            "symbol_pos": np.array((-0.5, -1)),
+                            "symbol_pos": np.array((-0.25, -1)),
                         },
                         "right": {
                             "tag": "aexpr-int-lit",
                             "value": 0,
-                            "symbol_pos": np.array((1, -1)),
+                            "symbol_pos": np.array((0.75, -1)),
                         },
                         "symbol_pos": np.array((0.25, 1)),
                     },
@@ -392,8 +392,8 @@ class EvalWithContinuation_Expression_1562025(Scene):
                 },
                 "right": {
                     "tag": "aexpr-int-lit",
-                    "value": 9,
-                    "symbol_pos": np.array((2, 2)),
+                    "value": 25,
+                    "symbol_pos": np.array((2, -1)),
                 },
                 "symbol_pos": np.array((0, 3)),
             }
