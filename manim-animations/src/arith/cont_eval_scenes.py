@@ -554,18 +554,22 @@ class EvalWithContinuation_Expression_13479(Scene):
         initial_expr_nodes, initial_expr_edges = compile_arith_expr(
             trace[0][0],
         )
-        initial_expr_vgroup = VGroup(
-            *initial_expr_nodes.values(), *initial_expr_edges.values()
+        initial_expr_vgroup = (
+            VGroup(*initial_expr_nodes.values(), *initial_expr_edges.values())
+            .to_edge(LEFT, buff=1)
+            .set_y(0)
         )
-        self.play(
-            Create(
-                initial_expr_vgroup.to_edge(LEFT, buff=1).set_y(0),
-                lag_ratio=0,
-            )
+        control_string_surrounding_rect = SurroundingRectangle(
+            initial_expr_vgroup,
+            color=ManimColor("#808080"),
+            buff=0.3,
         )
+        self.play(Create(initial_expr_vgroup, lag_ratio=0))
+        self.play(Create(control_string_surrounding_rect), run_time=0.5)
 
         center_of_expr = initial_expr_vgroup.get_center()
-        # invariant: black expr tree and continuation stack are drawn and center_of_expr is the center of the expr tree
+        # invariants: - black expr tree, continuation stack and control_string_surrounding_rect are drawn
+        #             - center_of_expr is the center of the expr tree
         for (current_expr, current_continuation_stack), (
             next_expr,
             next_continuation_stack,
@@ -587,6 +591,7 @@ class EvalWithContinuation_Expression_13479(Scene):
             self.clear()
             self.add(current_expr_black_vgroup)
             self.add(VGroup(*current_continuation_stack_vobjs))
+            self.add(control_string_surrounding_rect)
 
             root_patmat_rect_0 = SurroundingRectangle(
                 current_expr_black_nodes[()], color=BLUE_E, buff=0.15
@@ -762,7 +767,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     #    3.2. morph the entire tree (including the substituted placeholder node) to the next continuation tree
                     #  4. re-box the continuation tree
                     font_height_of_popped_continuation_literal = (
-                        # any leaf in the right subtree would have the same height, and consequently,
+                        # any leaf in the right subtree would have the same font height, and consequently,
                         # in order to preserve that invariant, we need to resize the control string to that particular height
                         # when performing the substitution
                         popped_continuation_nodes[
