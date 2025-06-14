@@ -797,7 +797,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     self.remove(current_expr_black_nodes[()])  # the copy survives
-                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS)
 
                     # 2. partition the continuation tree (which becomes an expression tree when the placeholder node is substituted)
                     #    by coloring the right subtree to be the focused subtree
