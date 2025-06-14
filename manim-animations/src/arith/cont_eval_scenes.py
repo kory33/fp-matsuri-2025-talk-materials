@@ -377,9 +377,283 @@ class EvalWithContinuation_Expression_13479(Scene):
             placeholder_node: Tuple[PathInExpr, Mobject]
             edges: dict[PathInExpr, Line]
 
+        def somehow_create_continuation_substituted_right_is_focused(
+            cont: ArithCont,
+            current_literal_substituted_to_placeholder,
+        ) -> VGroup:
+            compiled = compile_continuation(
+                cont,
+                decide_color_of_right_edge_reaching=lambda _: FOCUSED_SUBTREE_COLOR,
+                decide_color_of_right_node=lambda _: FOCUSED_SUBTREE_COLOR,
+            )
+            scale_and_position_continuation_to_fit_in_bb_at_origin(compiled).set_x(3)
+            return VGroup(
+                *compiled[0].values(),
+                current_literal_substituted_to_placeholder.set_color(
+                    POSTPONED_SUBTREE_COLOR
+                ),
+                *compiled[2].values(),
+            ).copy()
+
+        def somehow_create_continuation_substituted_everything_except_right(
+            cont: ArithCont,
+            current_literal_substituted_to_placeholder,
+            star_shown: bool,
+        ) -> VGroup:
+            def symbol_for_root_of(cont: ArithCont) -> str:
+                if (
+                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
+                    or cont["tag"] == "cont-then-add-lit-from-left"
+                ):
+                    return "+"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
+                    or cont["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    return "\\times"
+
+            node_vobjs: dict[PathInExpr, MathTex]
+            edge_vobjs: dict[PathInExpr, Line]
+
+            placeholder_node = (
+                Star(outer_radius=0.15)
+                .set_fill(FOCUSED_SUBTREE_COLOR, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
+                .set_color(FOCUSED_SUBTREE_COLOR)
+            )
+
+            if (
+                cont["tag"] == "cont-then-add-lit-from-left"
+                or cont["tag"] == "cont-then-mul-lit-from-left"
+            ):
+                raise Exception("hsjoihs is too lazy to implement this right now")
+                """# We then have a very simple 3-node continuation
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        node_vobjs[("left",)],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                }
+                # FIXME: 
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
+                )
+                """
+            else:
+                # FIXME:
+                # This should be a white star when star_shown is False.
+                # This should be a FOCUSED_SUBTREE_COLOR star when star_shown is True.
+
+                placeholder_node2 = (
+                    Star(outer_radius=0.15)
+                    .set_fill(FOCUSED_SUBTREE_COLOR if star_shown else WHITE, opacity=1)
+                    .move_to(vector2d_to_vector3d(cont["right"]["symbol_pos"]))
+                    .set_color(FOCUSED_SUBTREE_COLOR if star_shown else WHITE)
+                )
+
+                # subexpr_nodes, subexpr_edges = ({(): placeholder_node2}, {})
+
+                print(
+                    "COMPILE ARITH EXPR",
+                    compile_arith_expr(
+                        cont["right"],
+                        decide_color_of_edge_reaching=lambda _: WHITE,
+                        decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
+                    ),
+                )
+
+                print("PLACEHOLDER NODE2", placeholder_node2)
+
+                subexpr_nodes, subexpr_edges = compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=lambda _: WHITE,
+                    decide_color_of_node=lambda _: FOCUSED_SUBTREE_COLOR,
+                )
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, node)
+                            for path, node in subexpr_nodes.items()
+                        ]
+                    ),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        subexpr_nodes[()],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(POSTPONED_SUBTREE_COLOR),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, edge)
+                            for path, edge in subexpr_edges.items()
+                        ]
+                    ),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
+                )
+            scale_and_position_continuation_to_fit_in_bb_at_origin(compiled).set_x(3)
+            return VGroup(
+                *compiled[0].values(),
+                current_literal_substituted_to_placeholder.set_color(
+                    POSTPONED_SUBTREE_COLOR
+                ),
+                *compiled[2].values(),
+            ).copy()
+
+        def somehow_create_continuation_substituted_only_right(
+            cont: ArithCont,
+            current_literal_substituted_to_placeholder,
+        ) -> VGroup:
+            decide_color_of_right_edge_reaching = lambda _: FOCUSED_SUBTREE_COLOR
+            decide_color_of_right_node = lambda _: FOCUSED_SUBTREE_COLOR
+
+            def symbol_for_root_of(cont: ArithCont) -> str:
+                if (
+                    cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
+                    or cont["tag"] == "cont-then-add-lit-from-left"
+                ):
+                    return "+"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
+                    or cont["tag"] == "cont-then-mul-lit-from-left"
+                ):
+                    return "\\times"
+
+            node_vobjs: dict[PathInExpr, MathTex]
+            edge_vobjs: dict[PathInExpr, Line]
+
+            placeholder_node = (
+                Star(outer_radius=0.15)
+                .set_fill(PURE_GREEN, opacity=1)
+                .move_to(vector2d_to_vector3d(cont["placeholder_pos"]))
+                .set_color(PURE_GREEN)
+            )
+
+            if (
+                cont["tag"] == "cont-then-add-lit-from-left"
+                or cont["tag"] == "cont-then-mul-lit-from-left"
+            ):
+                # FIXME
+                raise Exception("hsjoihs is too lazy to implement this right now")
+                """# We then have a very simple 3-node continuation
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(PURE_GREEN),
+                    ("left",): MathTex(str(cont["left"]), **NODE_CONFIG)
+                    .move_to(vector2d_to_vector3d(cont["literal_pos"]))
+                    .set_color(PURE_GREEN),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        node_vobjs[("left",)],
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(PURE_GREEN),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        LINE_CONFIG,
+                    ).set_color(PURE_GREEN),
+                }
+                # FIXME: 
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("right",), placeholder_node), edge_vobjs
+                )
+                """
+            else:
+                # We have an expression attached to the continuation
+                subexpr_nodes, subexpr_edges = compile_arith_expr(
+                    cont["right"],
+                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
+                    decide_color_of_node=decide_color_of_right_node,
+                )
+                node_vobjs = {
+                    (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
+                    .set_opacity_by_tex(symbol_for_root_of(cont), opacity=0)
+                    .move_to(vector2d_to_vector3d(cont["symbol_pos"]))
+                    .set_color(PURE_GREEN),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, node)
+                            for path, node in subexpr_nodes.items()
+                        ]
+                    ),
+                }
+                edge_vobjs = {
+                    ("left",): connect(
+                        node_vobjs[()],
+                        placeholder_node,
+                        BUFF,
+                        {"stroke_width": 0, "color": BLACK},
+                    ).set_color(PURE_GREEN),
+                    ("right",): connect(
+                        node_vobjs[()],
+                        subexpr_nodes[()],
+                        BUFF,
+                        {"stroke_width": 0, "color": BLACK},
+                    ).set_color(PURE_GREEN),
+                    **dict(
+                        [
+                            ((childDirectionRight,) + path, edge)
+                            for path, edge in subexpr_edges.items()
+                        ]
+                    ),
+                }
+                compiled = ContinuationCompilationResult(
+                    node_vobjs, (("left",), placeholder_node), edge_vobjs
+                )
+
+            scale_and_position_continuation_to_fit_in_bb_at_origin(compiled).set_x(3)
+            return VGroup(
+                *compiled[0].values(),
+                *compiled[2].values(),
+            ).copy()
+
         def compile_continuation(
             cont: ArithCont,
+            decide_color_of_right_edge_reaching=None,
+            decide_color_of_right_node=None,
         ) -> ContinuationCompilationResult:
+            if decide_color_of_right_edge_reaching is None:
+                decide_color_of_right_edge_reaching = lambda _: POSTPONED_SUBTREE_COLOR
+            if decide_color_of_right_node is None:
+                decide_color_of_right_node = lambda _: POSTPONED_SUBTREE_COLOR
+
             def symbol_for_root_of(cont: ArithCont) -> str:
                 if (
                     cont["tag"] == "cont-then-proceed-to-right-of-add-ae"
@@ -429,6 +703,9 @@ class EvalWithContinuation_Expression_13479(Scene):
                         LINE_CONFIG,
                     ).set_color(POSTPONED_SUBTREE_COLOR),
                 }
+                # FIXME:
+                # Should we use `decide_color_of_edge_reaching` and `decide_color_of_node` here?
+                # hsjoihs lacks enough brain cells to decide
                 return ContinuationCompilationResult(
                     node_vobjs, (("right",), placeholder_node), edge_vobjs
                 )
@@ -436,8 +713,8 @@ class EvalWithContinuation_Expression_13479(Scene):
                 # We have an expression attached to the continuation
                 subexpr_nodes, subexpr_edges = compile_arith_expr(
                     cont["right"],
-                    decide_color_of_edge_reaching=lambda _: POSTPONED_SUBTREE_COLOR,
-                    decide_color_of_node=lambda _: POSTPONED_SUBTREE_COLOR,
+                    decide_color_of_edge_reaching=decide_color_of_right_edge_reaching,
+                    decide_color_of_node=decide_color_of_right_node,
                 )
                 node_vobjs = {
                     (): MathTex(symbol_for_root_of(cont), **NODE_CONFIG)
@@ -730,10 +1007,227 @@ class EvalWithContinuation_Expression_13479(Scene):
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
                 else:
                     self.play(
-                        FadeOut(root_patmat_final_rect),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
+                        Succession(
+                            current_continuation_stack_vobjs[0][0]
+                            .animate.set_color(ORANGE)
+                            .set_rate_func(rate_functions.linear),
+                            AnimationGroup(
+                                FadeOut(root_patmat_final_rect),
+                                Uncreate(current_continuation_stack_vobjs[0][0]),
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
-                    self.wait(SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2)
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 2)
+
+                    self.remove(current_continuation_stack_vobjs[0][1])
+                    compiled_popped_continuation = compile_continuation(
+                        popped_continuation,
+                    )
+                    (
+                        popped_continuation_nodes,
+                        popped_continuation_placeholder_node,
+                        popped_continuation_edges,
+                    ) = compiled_popped_continuation
+                    self.add(
+                        scale_and_position_continuation_to_fit_in_bb_at_origin(
+                            compiled_popped_continuation
+                        ).set_x(3)
+                    )
+
+                    font_height_of_popped_continuation_literal = (
+                        popped_continuation_nodes[()].height
+                    )
+                    box_around_substituted_continuation = SurroundingRectangle(
+                        *popped_continuation_nodes.values(),
+                        popped_continuation_placeholder_node[1],
+                        color=ORANGE,
+                    )
+                    current_literal_substituted_to_placeholder = (
+                        current_expr_black_nodes[()]
+                        .copy()
+                        .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                    )
+
+                    current_literal_substituted_to_placeholder_NOT_FOCUSED = (
+                        current_expr_black_nodes[()]
+                        .copy()
+                        .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(POSTPONED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                    )
+                    continuation_substituted_LEFT_IS_FOCUSED = VGroup(
+                        *popped_continuation_nodes.values(),
+                        current_literal_substituted_to_placeholder,
+                        *popped_continuation_edges.values(),
+                    )
+                    continuation_substituted_NOTHING_IS_FOCUSED = VGroup(
+                        *popped_continuation_nodes.values(),
+                        current_literal_substituted_to_placeholder_NOT_FOCUSED,
+                        *popped_continuation_edges.values(),
+                    )
+
+                    continuation_substituted_RIGHT_IS_FOCUSED = (
+                        somehow_create_continuation_substituted_right_is_focused(
+                            popped_continuation,
+                            current_literal_substituted_to_placeholder,
+                        )
+                    )
+
+                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN = (
+                        somehow_create_continuation_substituted_everything_except_right(
+                            popped_continuation,
+                            current_literal_substituted_to_placeholder,
+                            star_shown=False,
+                        )
+                    )
+
+                    continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_SHOWN = (
+                        somehow_create_continuation_substituted_everything_except_right(
+                            popped_continuation,
+                            current_literal_substituted_to_placeholder,
+                            star_shown=True,
+                        )
+                    )
+
+                    continuation_substituted_ONLY_RIGHT = (
+                        somehow_create_continuation_substituted_only_right(
+                            popped_continuation,
+                            current_literal_substituted_to_placeholder,
+                        )
+                    )
+
+                    next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
+                    next_expr_group = VGroup(
+                        *next_expr_nodes.values(), *next_expr_edges.values()
+                    )
+                    next_expr_group_at_the_place_of_popped_continuation = (
+                        next_expr_group.move_to(
+                            continuation_substituted_LEFT_IS_FOCUSED.get_center()
+                        )
+                    )
+                    rectangle_around_neg_at_the_place_of_popped_continuation = (
+                        SurroundingRectangle(
+                            next_expr_group_at_the_place_of_popped_continuation,
+                            color=ORANGE,
+                        )
+                    )
+
+                    print("next_expr", next_expr)
+                    print("next_continuation_stack", next_continuation_stack)
+                    # raise Exception("foo")
+
+                    next_cont_nodes, next_cont_edges = compile_arith_expr(
+                        next_continuation_stack[-1]
+                    )
+                    next_cont_group = VGroup(
+                        *next_cont_nodes.values(), *next_cont_edges.values()
+                    )
+
+                    self.play(
+                        current_expr_black_nodes[()]
+                        .animate.move_to(current_literal_substituted_to_placeholder)
+                        .set_color(FOCUSED_SUBTREE_COLOR)
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                        .set_rate_func(rate_functions.smooth),
+                        ReplacementTransform(
+                            popped_continuation_placeholder_node[1],
+                            current_literal_substituted_to_placeholder,
+                        ).set_rate_func(rate_functions.ease_in_quart),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+
+                    self.remove(current_expr_black_nodes[()])
+
+                    # unfocusing the color is easy: you can just set the entire color to POSTPONED_SUBTREE_COLOR
+                    self.play(
+                        continuation_substituted_LEFT_IS_FOCUSED.animate.set_color(
+                            POSTPONED_SUBTREE_COLOR
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+
+                    # focusing the other side, in turn, is a bit more tricky:
+                    self.play(
+                        ReplacementTransform(
+                            continuation_substituted_NOTHING_IS_FOCUSED,
+                            continuation_substituted_RIGHT_IS_FOCUSED,
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 3)
+
+                    # now, after the color has morphed,
+                    # we have to first visually remove what we have put,
+                    # and instead create two things:
+                    # the right sub-tree, now focused, which should be moved to the center,
+                    # and the new continuation that should remain on the stack
+
+                    # 1. first, remove the dangling objects
+                    self.remove(continuation_substituted_RIGHT_IS_FOCUSED)
+                    self.remove(current_literal_substituted_to_placeholder_NOT_FOCUSED)
+                    self.remove(current_literal_substituted_to_placeholder)
+
+                    # 2. simultaneously, we create both the "right sub-tree" and the "new continuation"
+
+                    self.add(
+                        continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN
+                    )
+
+                    self.add(continuation_substituted_ONLY_RIGHT)
+
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
+
+                    self.play(
+                        continuation_substituted_ONLY_RIGHT.animate.move_to(
+                            center_of_expr
+                        ),
+                        ReplacementTransform(
+                            continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_HIDDEN,
+                            continuation_substituted_EVERYTHING_EXCEPT_RIGHT_STAR_SHOWN,
+                        ),
+                        # FIXME:
+                        # This transform is aesthetically wrong, because it does not preserve the structure.
+                        # The correct way is to modify the ONLY_RIGHT so that its parents are nonexistent, rather than being merely transparent.
+                        # However, since the deadline is approaching, we will hope that the audience would not notice
+                        ReplacementTransform(
+                            continuation_substituted_ONLY_RIGHT,
+                            next_expr_group_at_the_place_of_popped_continuation.move_to(
+                                center_of_expr
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS * 5)
+
+                    # FIXME: ↓ ここより下を直す ↓
+                    # self.remove(current_expr_black_nodes[()])
+                    # self.play(
+                    #     Create(box_around_substituted_continuation),
+                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 1.5,
+                    # )
+                    # self.play(
+                    #     ReplacementTransform(
+                    #         continuation_substituted_RIGHT_IS_FOCUSED,
+                    #         next_continuation_stack[0],
+                    #     ),
+                    #     run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    # )
+
+                    # FIXME: wrong size
+                    self.play(
+                        FadeIn(box_around_substituted_continuation),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+
+                    # FIXME: ↑ ここより上を直す ↑
+
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS)
 
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
