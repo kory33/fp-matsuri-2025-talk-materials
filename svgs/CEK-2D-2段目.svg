@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="59.033192mm"
+   height="59.084064mm"
+   viewBox="0 0 59.033192 59.084064"
+   version="1.1"
+   id="svg15963"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   sodipodi:docname="CEK-2D-2段目.svg"
+   inkscape:export-filename="CEK-2D-2段目.png"
+   inkscape:export-xdpi="480"
+   inkscape:export-ydpi="480"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview15965"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.4503087"
+     inkscape:cx="133.07512"
+     inkscape:cy="124.45626"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs15960" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-92.983405,-55.983405)">
+    <path
+       id="rect12489"
+       style="fill:#ffffff;fill-opacity:0.637821;stroke:#7481c1;stroke-width:1.83319;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       d="M 93.900145 84.100035 L 93.900145 103.55725 L 107.38821 103.55725 L 107.38821 114.15091 L 122.70924 114.15091 L 122.70924 84.100035 L 93.900145 84.100035 z " />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.8361px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:-0.529167px;fill:#000000;stroke:none;stroke-width:8.0858;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8.0858, 16.1716"
+       x="97.324043"
+       y="125.22671"
+       id="text13361"
+       transform="matrix(1.1111205,0.00121796,-9.865344e-4,0.89999132,0,0)"><tspan
+         sodipodi:role="line"
+         id="tspan13359"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.8361px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';fill:#000000;stroke:none;stroke-width:8.08582"
+         x="97.324043"
+         y="125.22671">50</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.8361px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';fill:#000000;stroke:none;stroke-width:8.0858;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8.0858, 16.1716"
+       x="86.898987"
+       y="103.99075"
+       id="text13353"
+       transform="matrix(1.1111205,0.00121796,-9.865344e-4,0.89999132,0,0)"><tspan
+         sodipodi:role="line"
+         id="tspan13351"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.8361px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';fill:#000000;stroke:none;stroke-width:8.08582"
+         x="86.898987"
+         y="103.99075">Add</tspan></text>
+    <path
+       d="m 100.91167,104.40704 -1.21231,-10e-4 3.99018,-9.976921 1.18377,0.001 z"
+       style="font-size:8.81944px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';stroke-width:8.08582;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8.0858, 16.1716"
+       id="path13355" />
+    <path
+       d="m 110.76474,94.682689 1.18379,0.001 3.93976,9.985621 -1.19804,-10e-4 z"
+       style="font-size:8.81944px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';stroke-width:8.08582;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8.0858, 16.1716"
+       id="path13357" />
+    <path
+       d="m 100.91167,104.40704 -1.21231,-10e-4 3.99018,-9.976921 1.18377,0.001 z"
+       style="font-size:8.81944px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';stroke-width:8.08582;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8.0858, 16.1716"
+       id="path13623" />
+  </g>
+</svg>
