@@ -67,13 +67,17 @@ class SubArithExprWithNodePos(TypedDict):
     right: "ArithExpr"
     symbol_pos: Vector2D
 
-
 class MulArithExprWithNodePos(TypedDict):
     tag: Literal["aexpr-mul"]
     left: "ArithExpr"
     right: "ArithExpr"
     symbol_pos: Vector2D
 
+class PowArithExprWithNodePos(TypedDict):
+    tag: Literal["aexpr-pow"]
+    left: "ArithExpr"
+    right: "ArithExpr"
+    symbol_pos: Vector2D
 
 class IntLitArithExprWithNodePos(TypedDict):
     tag: Literal["aexpr-int-lit"]
@@ -82,7 +86,7 @@ class IntLitArithExprWithNodePos(TypedDict):
 
 
 ArithExpr = Union[
-    AddArithExprWithNodePos, SubArithExprWithNodePos, MulArithExprWithNodePos, IntLitArithExprWithNodePos
+    AddArithExprWithNodePos, SubArithExprWithNodePos, MulArithExprWithNodePos, PowArithExprWithNodePos, IntLitArithExprWithNodePos
 ]
 
 
@@ -106,15 +110,7 @@ def ae_zip_nodes_with_paths(
 ) -> Iterable[Tuple[PathInExpr, ArithExpr]]:
     if expr["tag"] == "aexpr-int-lit":
         yield (prefix, expr)
-    elif expr["tag"] == "aexpr-add":
-        yield (prefix, expr)
-        yield from ae_zip_nodes_with_paths(expr["left"], prefix + ("left",))
-        yield from ae_zip_nodes_with_paths(expr["right"], prefix + ("right",))
-    elif expr["tag"] == "aexpr-sub":
-        yield (prefix, expr)
-        yield from ae_zip_nodes_with_paths(expr["left"], prefix + ("left",))
-        yield from ae_zip_nodes_with_paths(expr["right"], prefix + ("right",))
-    elif expr["tag"] == "aexpr-mul":
+    elif expr["tag"] == "aexpr-add" or expr["tag"] == "aexpr-sub" or expr["tag"] == "aexpr-mul" or expr["tag"] == "aexpr-pow":
         yield (prefix, expr)
         yield from ae_zip_nodes_with_paths(expr["left"], prefix + ("left",))
         yield from ae_zip_nodes_with_paths(expr["right"], prefix + ("right",))
@@ -128,6 +124,18 @@ class ThenProceedToRightOfAddAEWithNodePos(TypedDict):
 
 class ThenProceedToRightOfSubAEWithNodePos(TypedDict):
     tag: Literal["cont-then-proceed-to-right-of-sub-ae"]
+    right: ArithExpr
+    symbol_pos: Vector2D
+    placeholder_pos: Vector2D
+    
+class ThenProceedToRightOfMulAEWithNodePos(TypedDict):
+    tag: Literal["cont-then-proceed-to-right-of-mul-ae"]
+    right: ArithExpr
+    symbol_pos: Vector2D
+    placeholder_pos: Vector2D
+    
+class ThenProceedToRightOfPowAEWithNodePos(TypedDict):
+    tag: Literal["cont-then-proceed-to-right-of-pow-ae"]
     right: ArithExpr
     symbol_pos: Vector2D
     placeholder_pos: Vector2D
@@ -147,15 +155,16 @@ class ThenSubLitFromLeftWithNodePos(TypedDict):
     literal_pos: Vector2D
     placeholder_pos: Vector2D
 
-class ThenProceedToRightOfMulAEWithNodePos(TypedDict):
-    tag: Literal["cont-then-proceed-to-right-of-mul-ae"]
-    right: ArithExpr
+class ThenMulLitFromLeftWithNodePos(TypedDict):
+    tag: Literal["cont-then-mul-lit-from-left"]
+    left: int
     symbol_pos: Vector2D
+    literal_pos: Vector2D
     placeholder_pos: Vector2D
 
 
-class ThenMulLitFromLeftWithNodePos(TypedDict):
-    tag: Literal["cont-then-mul-lit-from-left"]
+class ThenPowLitFromLeftWithNodePos(TypedDict):
+    tag: Literal["cont-then-pow-lit-from-left"]
     left: int
     symbol_pos: Vector2D
     literal_pos: Vector2D
@@ -165,10 +174,12 @@ class ThenMulLitFromLeftWithNodePos(TypedDict):
 ArithCont = Union[
     ThenProceedToRightOfAddAEWithNodePos,
     ThenProceedToRightOfSubAEWithNodePos,
+    ThenProceedToRightOfMulAEWithNodePos,
+    ThenProceedToRightOfPowAEWithNodePos,
     ThenAddLitFromLeftWithNodePos,
     ThenSubLitFromLeftWithNodePos,
-    ThenProceedToRightOfMulAEWithNodePos,
     ThenMulLitFromLeftWithNodePos,
+    ThenPowLitFromLeftWithNodePos,
 ]
 
 
@@ -180,6 +191,8 @@ def ac_root_pos(cont: ArithCont) -> Vector3D:
         or cont["tag"] == "cont-then-sub-lit-from-left"
         or cont["tag"] == "cont-then-proceed-to-right-of-mul-ae"
         or cont["tag"] == "cont-then-mul-lit-from-left"
+        or cont["tag"] == "cont-then-proceed-to-right-of-pow-ae"
+        or cont["tag"] == "cont-then-pow-lit-from-left"
     ):
         return np.array((cont["symbol_pos"][0], cont["symbol_pos"][1], 0))
 
@@ -266,6 +279,24 @@ def trace_evaluation_of(expr_init: ArithExpr) -> MachineTrace:
                         "symbol_pos": current_expr_of_interest["symbol_pos"],
                     }
                     current_continuation_stack = new_stack
+                elif continuation["tag"] == "cont-then-proceed-to-right-of-pow-ae":
+                    current_expr_of_interest = continuation["right"]
+                    current_continuation_stack = new_stack + (
+                        {
+                            "tag": "cont-then-pow-lit-from-left",
+                            "left": lit,
+                            "symbol_pos": continuation["symbol_pos"],
+                            "literal_pos": continuation["placeholder_pos"],
+                            "placeholder_pos": continuation["right"]["symbol_pos"],
+                        },
+                    )
+                elif continuation["tag"] == "cont-then-pow-lit-from-left":
+                    current_expr_of_interest = {
+                        "tag": "aexpr-int-lit",
+                        "value": continuation["left"] ** lit,
+                        "symbol_pos": current_expr_of_interest["symbol_pos"],
+                    }
+                    current_continuation_stack = new_stack
         else:
             if expr["tag"] == "aexpr-add":
                 if expr["left"]["tag"] == "aexpr-int-lit":
@@ -333,6 +364,28 @@ def trace_evaluation_of(expr_init: ArithExpr) -> MachineTrace:
                             "placeholder_pos": expr["left"]["symbol_pos"],
                         },
                     )
+            elif expr["tag"] == "aexpr-pow":
+                if expr["left"]["tag"] == "aexpr-int-lit":
+                    current_expr_of_interest = expr["right"]
+                    current_continuation_stack = cont_stack + (
+                        {
+                            "tag": "cont-then-pow-lit-from-left",
+                            "left": expr["left"]["value"],
+                            "symbol_pos": expr["symbol_pos"],
+                            "literal_pos": expr["left"]["symbol_pos"],
+                            "placeholder_pos": expr["right"]["symbol_pos"],
+                        },
+                    )
+                else:
+                    current_expr_of_interest = expr["left"]
+                    current_continuation_stack = cont_stack + (
+                        {
+                            "tag": "cont-then-proceed-to-right-of-pow-ae",
+                            "right": expr["right"],
+                            "symbol_pos": expr["symbol_pos"],
+                            "placeholder_pos": expr["left"]["symbol_pos"],
+                        },
+                    )
 
 
 class EvalWithContinuation_Expression_1562025(Scene):
@@ -359,7 +412,7 @@ class EvalWithContinuation_Expression_1562025(Scene):
             {
                 "tag": "aexpr-mul",
                 "left": {
-                    "tag": "aexpr-add",
+                    "tag": "aexpr-pow",
                     "left": {
                         "tag": "aexpr-sub",
                         "left": {
@@ -409,10 +462,12 @@ class EvalWithContinuation_Expression_1562025(Scene):
             def symbol_for_root_of(expr: ArithExpr) -> str:
                 if expr["tag"] == "aexpr-add":
                     return "+"
-                if expr["tag"] == "aexpr-sub":
+                elif expr["tag"] == "aexpr-sub":
                     return "-"
                 elif expr["tag"] == "aexpr-mul":
-                    return "\\times"
+                    return "\\times" 
+                elif expr["tag"] == "aexpr-pow":
+                    return "{}^\\wedge"
                 elif expr["tag"] == "aexpr-int-lit":
                     return str(expr["value"])
 
@@ -470,6 +525,11 @@ class EvalWithContinuation_Expression_1562025(Scene):
                     or cont["tag"] == "cont-then-mul-lit-from-left"
                 ):
                     return "\\times"
+                elif (
+                    cont["tag"] == "cont-then-proceed-to-right-of-pow-ae"
+                    or cont["tag"] == "cont-then-pow-lit-from-left"
+                ):
+                    return "{}^\\wedge"
 
             node_vobjs: dict[PathInExpr, MathTex]
             edge_vobjs: dict[PathInExpr, Line]
@@ -485,6 +545,7 @@ class EvalWithContinuation_Expression_1562025(Scene):
                 cont["tag"] == "cont-then-add-lit-from-left"
                 or cont["tag"] == "cont-then-sub-lit-from-left"
                 or cont["tag"] == "cont-then-mul-lit-from-left"
+                or cont["tag"] == "cont-then-pow-lit-from-left"
             ):
                 # We then have a very simple 3-node continuation
                 node_vobjs = {
@@ -734,6 +795,7 @@ class EvalWithContinuation_Expression_1562025(Scene):
                     popped_continuation["tag"] == "cont-then-add-lit-from-left"
                     or popped_continuation["tag"] == "cont-then-sub-lit-from-left"
                     or popped_continuation["tag"] == "cont-then-mul-lit-from-left"
+                    or popped_continuation["tag"] == "cont-then-pow-lit-from-left"
                 ):
                     # in this path, we have a continuation that adds or multiplies the literal (= continuation["left"]) from the left
                     # so, sequentially,
@@ -1078,6 +1140,9 @@ class EvalWithContinuation_Expression_1562025(Scene):
                     and current_expr["left"]["tag"] != "aexpr-int-lit"
                 ) or (
                     current_expr["tag"] == "aexpr-mul"
+                    and current_expr["left"]["tag"] != "aexpr-int-lit"
+                ) or (
+                    current_expr["tag"] == "aexpr-pow"
                     and current_expr["left"]["tag"] != "aexpr-int-lit"
                 )
                 focus_subtree_path_prefix: PathInExpr = (
