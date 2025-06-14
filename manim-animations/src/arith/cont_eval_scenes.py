@@ -90,8 +90,8 @@ def vector2d_to_vector3d(v: Vector2D) -> Vector3D:
 
 ChildDirection = Literal["left", "right"]
 childDirections: Tuple[ChildDirection, ...] = ("left", "right")
-childDirectionRight: ChildDirection = "right"
-childDirectionLeft: ChildDirection = "left"
+child_direction_right: ChildDirection = "right"
+child_direction_left: ChildDirection = "left"
 PathInExpr = Tuple[ChildDirection, ...]
 
 
@@ -157,6 +157,13 @@ def ac_root_pos(cont: ArithCont) -> Vector3D:
         or cont["tag"] == "cont-then-mul-lit-from-left"
     ):
         return np.array((cont["symbol_pos"][0], cont["symbol_pos"][1], 0))
+
+
+def pick_leftmost_leaf_path(arith_expr: ArithExpr) -> PathInExpr:
+    if arith_expr["tag"] == "aexpr-int-lit":
+        return ()
+    else:
+        return (child_direction_left,) + pick_leftmost_leaf_path(arith_expr["left"])
 
 
 MachineTrace = Tuple[Tuple[ArithExpr, Tuple[ArithCont, ...]], ...]
@@ -445,7 +452,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     .set_color(POSTPONED_SUBTREE_COLOR),
                     **dict(
                         [
-                            ((childDirectionRight,) + path, node)
+                            ((child_direction_right,) + path, node)
                             for path, node in subexpr_nodes.items()
                         ]
                     ),
@@ -465,7 +472,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                     ).set_color(POSTPONED_SUBTREE_COLOR),
                     **dict(
                         [
-                            ((childDirectionRight,) + path, edge)
+                            ((child_direction_right,) + path, edge)
                             for path, edge in subexpr_edges.items()
                         ]
                     ),
@@ -612,43 +619,49 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                 )
 
+                # In any case, we will interact the the top element of the continuation stack, so unwrap the top box
+                self.play(
+                    Succession(
+                        current_continuation_stack_vobjs[0][0]
+                        .animate.set_color(ORANGE)
+                        .set_rate_func(rate_functions.linear),
+                        AnimationGroup(
+                            FadeOut(root_patmat_final_rect),
+                            Uncreate(current_continuation_stack_vobjs[0][0]),
+                        ),
+                    ),
+                    run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                )
+                self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 2)
+
                 popped_continuation = current_continuation_stack[-1]
+
+                # We "hard-swap" the top continuation tree with visually-identical but destructured vobjects
+                self.remove(current_continuation_stack_vobjs[0][1])
+                compiled_popped_continuation = compile_continuation(
+                    popped_continuation,
+                )
+                (
+                    popped_continuation_nodes,
+                    popped_continuation_placeholder_node,
+                    popped_continuation_edges,
+                ) = compiled_popped_continuation
+                self.add(
+                    scale_and_position_continuation_to_fit_in_bb_at_origin(
+                        compiled_popped_continuation
+                    ).set_x(3)
+                )
+
                 if (
                     popped_continuation["tag"] == "cont-then-add-lit-from-left"
                     or popped_continuation["tag"] == "cont-then-mul-lit-from-left"
                 ):
                     # in this path, we have a continuation that adds or multiplies the literal (= continuation["left"]) from the left
-                    # so we "open" the top box of the continuation stack, substitute the literal (= current_expr["value"]) into the placeholder node,
-                    # reduce the atomic application and then load the result to the control string
-                    self.play(
-                        Succession(
-                            current_continuation_stack_vobjs[0][0]
-                            .animate.set_color(ORANGE)
-                            .set_rate_func(rate_functions.linear),
-                            AnimationGroup(
-                                FadeOut(root_patmat_final_rect),
-                                Uncreate(current_continuation_stack_vobjs[0][0]),
-                            ),
-                        ),
-                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
-                    )
-                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 2)
-
-                    self.remove(current_continuation_stack_vobjs[0][1])
-                    compiled_popped_continuation = compile_continuation(
-                        popped_continuation,
-                    )
-                    (
-                        popped_continuation_nodes,
-                        popped_continuation_placeholder_node,
-                        popped_continuation_edges,
-                    ) = compiled_popped_continuation
-                    self.add(
-                        scale_and_position_continuation_to_fit_in_bb_at_origin(
-                            compiled_popped_continuation
-                        ).set_x(3)
-                    )
-
+                    # so, sequentially,
+                    #  0. we "open" the top box of the continuation stack (which is already done before entering this if branch),
+                    #  1. substitute the literal (= current_expr["value"]) into the placeholder node,
+                    #  2. reduce the atomic application, and then
+                    #  3. load the result to the control string and shift the continuation stack to fill in
                     font_height_of_popped_continuation_literal = (
                         popped_continuation_nodes[("left",)].height
                     )
@@ -659,6 +672,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                     current_literal_substituted_to_placeholder = (
                         current_expr_black_nodes[()]
+                        # we want this object to behave independently of the original control string,
+                        # since during the movement of the control string into the place of the placeholder,
+                        # the placeholder itself should be morphing into the (substituted) control string,
+                        # so during the transition, there really will be two objects that both represent the control string
                         .copy()
                         .move_to(popped_continuation_placeholder_node[1])
                         .set_color(FOCUSED_SUBTREE_COLOR)
@@ -682,19 +699,24 @@ class EvalWithContinuation_Expression_13479(Scene):
                             color=ORANGE,
                         )
                     )
+
+                    # actual animation
+                    #  1. substitute the literal (= current_expr["value"]) into the placeholder node
                     self.play(
                         current_expr_black_nodes[()]
                         .animate.move_to(current_literal_substituted_to_placeholder)
                         .set_color(FOCUSED_SUBTREE_COLOR)
-                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
-                        .set_rate_func(rate_functions.smooth),
+                        .scale_to_fit_height(
+                            font_height_of_popped_continuation_literal
+                        ),
                         ReplacementTransform(
                             popped_continuation_placeholder_node[1],
                             current_literal_substituted_to_placeholder,
                         ).set_rate_func(rate_functions.ease_in_quart),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
-                    self.remove(current_expr_black_nodes[()])
+                    self.remove(current_expr_black_nodes[()])  # the copy survives
+                    #  2. reduce the atomic application
                     self.play(
                         Create(box_around_substituted_continuation),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 1.5,
@@ -718,6 +740,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 2,
                     )
+                    #  3. load the result to the control string and shift the continuation stack to fill in
                     self.play(
                         next_expr_group_at_the_place_of_popped_continuation.animate.move_to(
                             center_of_expr
@@ -729,12 +752,212 @@ class EvalWithContinuation_Expression_13479(Scene):
                     )
                     self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
                 else:
-                    self.play(
-                        FadeOut(root_patmat_final_rect),
-                        run_time=SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2,
+                    # in this path, we have a continuation telling the machine to proceed to the right of an operation, so, sequentially,
+                    #  0. we "open" the top box of the continuation stack (which is already done before entering this else branch),
+                    #  1. substitute the literal (= current_expr["value"]) into the placeholder node (left),
+                    #  2. partition the continuation tree (which becomes an expression tree when the placeholder node is substituted)
+                    #     by coloring the right subtree to be the focused subtree,
+                    #  3. in parallel:
+                    #    3.1. move the focused subtree towards left so that it becomes the new control string,
+                    #    3.2. morph the entire tree (including the substituted placeholder node) to the next continuation tree
+                    #  4. re-box the continuation tree
+                    font_height_of_popped_continuation_literal = (
+                        # any leaf in the right subtree would have the same height, and consequently,
+                        # in order to preserve that invariant, we need to resize the control string to that particular height
+                        # when performing the substitution
+                        popped_continuation_nodes[
+                            (child_direction_right,)
+                            + pick_leftmost_leaf_path(popped_continuation["right"])
+                        ].height
                     )
-                    self.wait(SLEEP_BETWEEN_EXPR_PATTERN_MATCH_STEPS / 2)
+                    current_literal_substituted_to_placeholder = (
+                        current_expr_black_nodes[()]
+                        .copy()  # the reason for the copy is the same as in the previous branch
+                        .move_to(popped_continuation_placeholder_node[1])
+                        .set_color(
+                            # we are now not interested in the substituted part, so decolor
+                            POSTPONED_SUBTREE_COLOR
+                        )
+                        .scale_to_fit_height(font_height_of_popped_continuation_literal)
+                    )
 
+                    # actual animation
+                    # 1. substitute the literal (= current_expr["value"]) into the placeholder node (left)
+                    self.play(
+                        current_expr_black_nodes[()]
+                        .animate.move_to(current_literal_substituted_to_placeholder)
+                        .set_color(POSTPONED_SUBTREE_COLOR)
+                        .scale_to_fit_height(
+                            font_height_of_popped_continuation_literal
+                        ),
+                        ReplacementTransform(
+                            popped_continuation_placeholder_node[1],
+                            current_literal_substituted_to_placeholder,
+                        ).set_rate_func(rate_functions.ease_in_quart),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.remove(current_expr_black_nodes[()])  # the copy survives
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS)
+
+                    # 2. partition the continuation tree (which becomes an expression tree when the placeholder node is substituted)
+                    #    by coloring the right subtree to be the focused subtree
+                    # To do this, we modify the entire right subtree of the popped_continuation_nodes,
+                    # since none of the nodes in popped_continuation_nodes has been modified yet.
+                    vgroup_of_objs_belonging_to_right_subtree_of_popped_continuation = (
+                        VGroup(
+                            *[
+                                popped_continuation_nodes[path]
+                                for path in popped_continuation_nodes
+                                if path[:1] == (child_direction_right,)
+                            ],
+                            *[
+                                popped_continuation_edges[path]
+                                for path in popped_continuation_edges
+                                if path[:1] == (child_direction_right,)
+                                # we do not want to color the edge coming from the root
+                                and len(path) > 1
+                            ],
+                        )
+                    )
+                    self.play(
+                        vgroup_of_objs_belonging_to_right_subtree_of_popped_continuation.animate.set_color(
+                            FOCUSED_SUBTREE_COLOR
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 3 * 2,
+                    )
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
+
+                    # 3. in parallel:
+                    #   3.1. move the focused subtree towards left so that it becomes the new control string,
+                    #   3.2. morph the entire tree (including the substituted placeholder node) to the next continuation tree
+                    # We do this by preparing a copy of the focused part of the compiled_popped_continuation tree,
+                    # and we
+                    #   - morph the copied focused part into the (colored copy of) next_expr (and then to next_expr), and
+                    #   - morph the entire tree into the next continuation tree
+                    focused_part_copied_nodes = dict(
+                        [
+                            (path, popped_continuation_nodes[path].copy())
+                            for path in popped_continuation_nodes
+                            if path[:1] == (child_direction_right,)
+                        ]
+                    )
+                    focused_part_copied_edges = dict(
+                        [
+                            (path, popped_continuation_edges[path].copy())
+                            for path in popped_continuation_edges
+                            if path[:1] == (child_direction_right,)
+                            # we do not want to color the edge coming from the root
+                            and len(path) > 1
+                        ]
+                    )
+
+                    next_expr_nodes, next_expr_edges = compile_arith_expr(next_expr)
+                    VGroup(
+                        *next_expr_nodes.values(), *next_expr_edges.values()
+                    ).move_to(center_of_expr)
+                    next_expr_nodes_colored_copy = dict(
+                        [
+                            (path, node.copy().set_color(FOCUSED_SUBTREE_COLOR))
+                            for path, node in next_expr_nodes.items()
+                        ]
+                    )
+                    next_expr_edges_colored_copy = dict(
+                        [
+                            (path, edge.copy().set_color(FOCUSED_SUBTREE_COLOR))
+                            for path, edge in next_expr_edges.items()
+                        ]
+                    )
+
+                    compiled_next_continuation = compile_continuation(
+                        # this access is safe, since the machine will be proceeding to
+                        # the right subtree after processing the current evaluation frame
+                        next_continuation_stack[-1],
+                    )
+                    (
+                        next_continuation_nodes,
+                        next_continuation_placeholder_node,
+                        next_continuation_edges,
+                    ) = compiled_next_continuation
+                    scale_and_position_continuation_to_fit_in_bb_at_origin(
+                        compiled_next_continuation
+                    ).set_x(3)
+
+                    self.play(
+                        # morph the copied focused part into the (colored copy of) next_expr (and then to next_expr)
+                        Succession(
+                            AnimationGroup(
+                                *[
+                                    ReplacementTransform(
+                                        focused_part_copied_nodes[path],
+                                        next_expr_nodes_colored_copy[path[1:]],
+                                    )
+                                    for path in focused_part_copied_nodes
+                                ],
+                                *[
+                                    ReplacementTransform(
+                                        focused_part_copied_edges[path],
+                                        next_expr_edges_colored_copy[path[1:]],
+                                    )
+                                    for path in focused_part_copied_edges
+                                ],
+                            ),
+                        ),
+                        # Morph the entire tree into the next continuation tree.
+                        # Note that we morph the entire focused part of the popped continuation tree
+                        # into the placeholder node of the next continuation tree.
+                        AnimationGroup(
+                            *[
+                                ReplacementTransform(
+                                    popped_continuation_nodes[path],
+                                    next_continuation_placeholder_node[1]
+                                    if path[:1] == (child_direction_right,)
+                                    else next_continuation_nodes[path],
+                                )
+                                for path in popped_continuation_nodes
+                            ],
+                            *[
+                                ReplacementTransform(
+                                    popped_continuation_edges[path],
+                                    next_continuation_placeholder_node[1]
+                                    if path[:1] == (child_direction_right,)
+                                    and len(path) > 1
+                                    else next_continuation_edges[path],
+                                )
+                                for path in popped_continuation_edges
+                            ],
+                            ReplacementTransform(
+                                current_literal_substituted_to_placeholder,
+                                next_continuation_nodes[(child_direction_left,)],
+                            ),
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.play(
+                        # morph the colored copy of next_expr to next_expr
+                        *[
+                            ReplacementTransform(
+                                next_expr_nodes_colored_copy[path],
+                                next_expr_nodes[path],
+                            )
+                            for path in next_expr_nodes
+                        ],
+                        *[
+                            ReplacementTransform(
+                                next_expr_edges_colored_copy[path],
+                                next_expr_edges[path],
+                            )
+                            for path in next_expr_edges
+                        ],
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
+                    )
+                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
+
+                    # 4. re-box the continuation tree
+                    self.play(
+                        Create(
+                            bounding_box_for_continuation_placed_at_origin().set_x(3),
+                        )
+                    )
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
                 # and push a continuation to the stack
