@@ -669,6 +669,7 @@ class EvalWithContinuation_Expression_13479(Scene):
                         *popped_continuation_nodes.values(),
                         popped_continuation_placeholder_node[1],
                         color=ORANGE,
+                        buff=0.2,
                     )
                     current_literal_substituted_to_placeholder = (
                         current_expr_black_nodes[()]
@@ -693,11 +694,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                     next_expr_group_at_the_place_of_popped_continuation = (
                         next_expr_group.move_to(continuation_substituted.get_center())
                     )
-                    rectangle_around_neg_at_the_place_of_popped_continuation = (
-                        SurroundingRectangle(
-                            next_expr_group_at_the_place_of_popped_continuation,
-                            color=ORANGE,
-                        )
+                    rectangle_around_next_expr_grp_at_the_place_of_popped_continuation = SurroundingRectangle(
+                        next_expr_group_at_the_place_of_popped_continuation,
+                        color=ORANGE,
+                        buff=0.15,
                     )
 
                     # actual animation
@@ -729,14 +729,14 @@ class EvalWithContinuation_Expression_13479(Scene):
                             ),
                             ReplacementTransform(
                                 box_around_substituted_continuation,
-                                rectangle_around_neg_at_the_place_of_popped_continuation,
+                                rectangle_around_next_expr_grp_at_the_place_of_popped_continuation,
                             ),
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
                     self.play(
                         FadeOut(
-                            rectangle_around_neg_at_the_place_of_popped_continuation
+                            rectangle_around_next_expr_grp_at_the_place_of_popped_continuation
                         ),
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS / 2,
                     )
@@ -949,13 +949,13 @@ class EvalWithContinuation_Expression_13479(Scene):
                         ],
                         run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
-                    self.wait(SLEEP_BETWEEN_CONT_POP_STEPS / 3)
 
                     # 4. re-box the continuation tree
                     self.play(
                         Create(
                             bounding_box_for_continuation_placed_at_origin().set_x(3),
-                        )
+                        ),
+                        run_time=SLEEP_BETWEEN_CONT_POP_STEPS,
                     )
             else:
                 # in this path, we have a non-literal at the root so we must decompose the root in either direction
@@ -1154,7 +1154,6 @@ class EvalWithContinuation_Expression_13479(Scene):
                     ),
                     run_time=SUBTREE_DECOMPOSITION_ANIMATION_DURATION / 5 * 3,
                 )
-                self.wait(SUBTREE_DECOMPOSITION_ANIMATION_DURATION / 5 * 2)
 
                 # we now de-color the focused subtree
                 decoloring = (
@@ -1170,10 +1169,10 @@ class EvalWithContinuation_Expression_13479(Scene):
                 if decoloring:
                     self.play(
                         *decoloring,
-                        run_time=SUBTREE_DECOMPOSITION_ANIMATION_DURATION,
+                        run_time=SUBTREE_DECOMPOSITION_ANIMATION_DURATION / 3,
                     )
                 else:
                     # no decoloring to do, we just wait
-                    self.wait(SUBTREE_DECOMPOSITION_ANIMATION_DURATION)
+                    self.wait(SUBTREE_DECOMPOSITION_ANIMATION_DURATION / 3)
 
         self.wait(1)
