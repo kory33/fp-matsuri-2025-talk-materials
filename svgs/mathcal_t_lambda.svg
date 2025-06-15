@@ -56,7 +56,13 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(19.743251,-13.970543)"><image
+     transform="translate(19.743251,-13.970543)"><rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:3, 6.00001;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect45515"
+       width="578.22461"
+       height="616.52026"
+       x="-19.743252"
+       y="13.970543" /><image
        width="99.041779"
        height="95.970718"
        preserveAspectRatio="none"
