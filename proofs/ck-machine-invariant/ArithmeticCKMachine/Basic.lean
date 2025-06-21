@@ -48,6 +48,7 @@ def evalOneStep : ArithExpr → ArithExpr
   | _ => mul (evalOneStep e1) e2
 
 -- The size of an expression is defined as the number of operations in it.
+-- TODO: rename this to `opsCount`
 def size : ArithExpr → Nat
 | (literal _) => 0
 | (add e1 e2) => 1 + size e1 + size e2
@@ -184,12 +185,22 @@ inductive ArithEvalFrame : Type
 | thenMulLitLeft : Nat → ArithEvalFrame -- [n * HOLE]
 open ArithEvalFrame
 
+namespace ArithEvalFrame
+
 instance : Repr ArithEvalFrame where
   reprPrec
   | (thenEvalRightAdd e), _ => s!"# + ({repr e})"
   | (thenAddLitLeft n), _ => s!"{n} + #"
   | (thenEvalRightMul e), _ => s!"# * ({repr e})"
   | (thenMulLitLeft n), _ => s!"{n} * #"
+
+def frameOpCount : ArithEvalFrame → Nat
+| (thenEvalRightAdd e) => 1 + e.size
+| (thenEvalRightMul e) => 1 + e.size
+| (thenAddLitLeft _) => 1
+| (thenMulLitLeft _) => 1
+
+end ArithEvalFrame
 
 structure ArithmeticCKMachine : Type where
   controlString: ArithExpr
@@ -201,6 +212,9 @@ open ArithExpr
 open ArithEvalFrame
 
 def init (e : ArithExpr) : ArithmeticCKMachine := ⟨e, []⟩
+
+def machineStateOpCount (machine : ArithmeticCKMachine): Nat :=
+  machine.controlString.size + (machine.frames.map frameOpCount).sum
 
 def step : ArithmeticCKMachine → ArithmeticCKMachine
 | ⟨add e1 e2, frames⟩ => ⟨e1, thenEvalRightAdd e2 :: frames⟩
@@ -343,6 +357,58 @@ private lemma iterate_succ_apply_outer {α : Type} {f : α → α} (n : ℕ) (x 
   rw [Nat.succ_eq_add_one, Nat.add_comm, Function.iterate_add_apply (α := α) f 1 n]
   simp
 
+lemma machineStateOpCount_plus_reductionCountUptoIndex_preserved (expr : ArithExpr) (n : Nat) :
+    (step^[n.succ] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n.succ) =
+    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) := by
+  rw [iterate_succ_apply_outer]
+  rcases h : step^[n] (init expr) with ⟨control, frames⟩
+  cases hc : control with
+  | literal _ =>
+    cases hf : frames with
+    | nil => simp [step, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition, h, hc, hf]
+    | cons head tail =>
+      cases head with
+      | thenEvalRightAdd e =>
+        simp +arith [
+          step, size, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
+          reductionCountUptoIndex.isReducingTransition, h, hc, hf
+        ]
+      | thenEvalRightMul e => -- same as previous branch
+        simp +arith [
+          step, size, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
+          reductionCountUptoIndex.isReducingTransition, h, hc, hf
+        ]
+      | thenAddLitLeft n' =>
+        have : reductionCountUptoIndex.isReducingTransition expr n = true := by
+          simp [reductionCountUptoIndex.isReducingTransition, h, hc, hf]
+        simp +arith [
+          step, machineStateOpCount, size, frameOpCount, reductionCountUptoIndex,
+          List.range_succ, List.filter_cons_of_pos this
+        ]
+      | thenMulLitLeft n' => -- same as previous branch
+        have : reductionCountUptoIndex.isReducingTransition expr n = true := by
+          simp [reductionCountUptoIndex.isReducingTransition, h, hc, hf]
+        simp +arith [
+          step, machineStateOpCount, size, frameOpCount, reductionCountUptoIndex,
+          List.range_succ, List.filter_cons_of_pos this
+        ]
+  | add e1 e2 =>
+    simp +arith [
+      step, size, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
+      reductionCountUptoIndex.isReducingTransition, h, hc
+    ]
+  | mul e1 e2 =>
+    simp +arith [
+      step, size, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
+      reductionCountUptoIndex.isReducingTransition, h, hc
+    ]
+
+lemma machineStateOpCount_plus_reductionCountUptoIndex_constant (expr : ArithExpr) (n : Nat) :
+    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) = expr.size := by
+  induction n with
+  | zero      => simp [machineStateOpCount, reductionCountUptoIndex, init]
+  | succ n ih => rw [machineStateOpCount_plus_reductionCountUptoIndex_preserved expr n, ih]
+
 lemma stitchUp_nonlit_evalOneStep
     (e : ArithExpr) (fs : List ArithEvalFrame)
     (h : e.isLiteral = false) :
@@ -445,18 +511,20 @@ theorem stitchUp_traces_evalOneStep (initExpr : ArithExpr) (idx : Nat) :
       rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
       simp [stitchUp]
 
-lemma totalReductionCount (initExpr : ArithExpr) :
-    reductionCountUptoIndex initExpr (initExpr.size * 3) = initExpr.size := by
-  sorry
+lemma totalReductionCount (expr : ArithExpr) :
+    reductionCountUptoIndex expr (expr.size * 3) = expr.size := by
+  nth_rw 2 [←machineStateOpCount_plus_reductionCountUptoIndex_constant expr (expr.size * 3)]
+  simp only [evalViaCKMachine_result, machineStateOpCount, size]
+  simp
 
-theorem evalViaCKMachine_evalViaSteps (initExpr : ArithExpr) :
-    evalViaCKMachine initExpr = evalViaSteps initExpr := by
+theorem evalViaCKMachine_evalViaSteps (expr : ArithExpr) :
+    evalViaCKMachine expr = evalViaSteps expr := by
   apply ArithExpr.literal.inj
   rw [
     ←evalViaSteps_result,
-    ←totalReductionCount initExpr,
-    ←stitchUp_traces_evalOneStep initExpr (initExpr.size * 3),
-    evalViaCKMachine_result initExpr
+    ←totalReductionCount expr,
+    ←stitchUp_traces_evalOneStep expr (expr.size * 3),
+    evalViaCKMachine_result expr
   ]
   dsimp only [stitchUp]
 
