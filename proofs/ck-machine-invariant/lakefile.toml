@@ -3,7 +3,7 @@ version = "0.1.0"
 defaultTargets = ["ck-machine-invariant"]
 
 [[lean_lib]]
-name = "CKMachineInvariant"
+name = "ArithmeticCKMachine"
 
 [[lean_exe]]
 name = "ck-machine-invariant"
