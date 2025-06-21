@@ -18,17 +18,16 @@ instance : Repr ArithExpr where
 
 namespace ArithExpr
 
-abbrev isLiteral : ArithExpr → Bool
-| (literal _) => true
-| _ => false
+abbrev IsLiteral : ArithExpr → Prop
+| (literal _) => True
+| _           => False
 
-lemma isLiteral_extract (e : ArithExpr) :
-    e.isLiteral = true → ∃ n : Nat, e = literal n := by
-  intro h
-  cases e with
-  | literal n => exact ⟨n, rfl⟩
-  | add e1 e2 => contradiction
-  | mul e1 e2 => contradiction
+@[simp] lemma isLiteral_literal (n : Nat) : (literal n).IsLiteral := trivial
+@[simp] lemma not_isLiteral_add (e1 e2 : ArithExpr) : ¬(add e1 e2).IsLiteral := by simp
+@[simp] lemma not_isLiteral_mul (e1 e2 : ArithExpr) : ¬(mul e1 e2).IsLiteral := by simp
+
+lemma isLiteral_extract : ∀ {e : ArithExpr}, e.IsLiteral → ∃ n : Nat, e = literal n
+| (literal n), _ => ⟨n, rfl⟩
 
 def evalOneStep : ArithExpr → ArithExpr
 | (literal n) => literal n
@@ -52,45 +51,44 @@ abbrev opsCount : ArithExpr → Nat
 | (add e1 e2) => 1 + e1.opsCount + e2.opsCount
 | (mul e1 e2) => 1 + e1.opsCount + e2.opsCount
 
-lemma opsCount_zero_then_literal (e : ArithExpr) :
-    e.opsCount = 0 → ∃ n : Nat, e = literal n := by
-  intro h
+lemma opsCount_zero_then_literal (e : ArithExpr) (h : e.opsCount = 0) :
+    ∃ n : Nat, e = literal n := by
   cases e with
   | literal n => simp [h]
   | add e1 e2 => simp at h -- contradiction
   | mul e1 e2 => simp at h -- contradiction
 
-lemma opsCount_nonzero_if_not_literal (e : ArithExpr) (h : e.isLiteral = false) : e.opsCount > 0 := by
+lemma opsCount_nonzero_if_not_literal (e : ArithExpr) (h : ¬e.IsLiteral) : e.opsCount > 0 := by
   cases e with
-  | literal n => contradiction
+  | literal n => simp at h -- contradiction
   | add e1 e2 => simp
   | mul e1 e2 => simp
 
-lemma evalOneStep_lit_add_nonlit (lLit : Nat) (rNonlit : ArithExpr) (ev : rNonlit.isLiteral = false) :
+@[simp] lemma evalOneStep_lit_add_nonlit (lLit : Nat) (rNonlit : ArithExpr) (ev : ¬rNonlit.IsLiteral) :
     ((literal lLit).add rNonlit).evalOneStep = (literal lLit).add (rNonlit.evalOneStep) := by
   cases h : rNonlit with
-  | literal n => rw [h] at ev; contradiction
+  | literal n => simp [h] at ev
   | add e1 e2 => simp [evalOneStep]
   | mul e1 e2 => simp [evalOneStep]
 
-lemma evalOneStep_lit_mul_nonlit (lLit : Nat) (rNonlit : ArithExpr) (ev : rNonlit.isLiteral = false) :
+@[simp] lemma evalOneStep_lit_mul_nonlit (lLit : Nat) (rNonlit : ArithExpr) (ev : ¬rNonlit.IsLiteral) :
     ((literal lLit).mul rNonlit).evalOneStep = (literal lLit).mul (rNonlit.evalOneStep) := by
   cases h : rNonlit with
-  | literal n => rw [h] at ev; contradiction
+  | literal n => simp [h] at ev
   | add e1 e2 => simp [evalOneStep]
   | mul e1 e2 => simp [evalOneStep]
 
-lemma evalOneStep_nonlit_add (lNonlit : ArithExpr) (r : ArithExpr) (ev : lNonlit.isLiteral = false) :
+@[simp] lemma evalOneStep_nonlit_add (lNonlit : ArithExpr) (r : ArithExpr) (ev : ¬lNonlit.IsLiteral) :
     (lNonlit.add r).evalOneStep = lNonlit.evalOneStep.add r := by
   cases h : lNonlit with
-  | literal n => rw [h] at ev; contradiction
+  | literal n => simp [h] at ev
   | add e1 e2 => simp [evalOneStep]
   | mul e1 e2 => simp [evalOneStep]
 
-lemma evalOneStep_nonlit_mul (lNonlit : ArithExpr) (r : ArithExpr) (ev : lNonlit.isLiteral = false) :
+@[simp] lemma evalOneStep_nonlit_mul (lNonlit : ArithExpr) (r : ArithExpr) (ev : ¬lNonlit.IsLiteral) :
     (lNonlit.mul r).evalOneStep = lNonlit.evalOneStep.mul r := by
   cases h : lNonlit with
-  | literal n => rw [h] at ev; contradiction
+  | literal n => simp [h] at ev
   | add e1 e2 => simp [evalOneStep]
   | mul e1 e2 => simp [evalOneStep]
 
@@ -100,39 +98,30 @@ theorem evalOneStep_progress (e : ArithExpr) : (evalOneStep e).opsCount = e.opsC
     simp [evalOneStep]
 
   | add e1 e2 ih1 ih2 =>
-    by_cases h : e1.isLiteral = true
+    by_cases h : e1.IsLiteral
     · -- e1 is a literal
-      rcases isLiteral_extract e1 h with ⟨n1, rfl⟩
-      cases h : e2 with
-      | literal n2 => -- both e1 and e2 are literals. Reduction actually happens in this branch
-        simp [evalOneStep]
-      | add e21 e22 => -- e1 is a literal but e2 is not, so use induction hypothesis
-        rw [←h, evalOneStep_lit_add_nonlit _ _ (by simp [h]), opsCount]
-        simp only [ih2]
-        simp +arith [opsCount, h]
-      | mul e21 e22 => -- exactly the same as add case
-        rw [←h, evalOneStep_lit_add_nonlit _ _ (by simp [h]), opsCount]
-        simp only [ih2]
-        simp +arith [opsCount, h]
+      rcases isLiteral_extract h with ⟨n1, rfl⟩
+      by_cases h : e2.IsLiteral
+      · -- both e1 and e2 are literals. Reduction actually happens in this branch
+        rcases isLiteral_extract h with ⟨n2, rfl⟩
+        simp [h, evalOneStep]
+      · rw [evalOneStep_lit_add_nonlit _ _ (by simp [h]), opsCount, ih2]
+        simp +arith [opsCount, h, Nat.sub_add_cancel (opsCount_nonzero_if_not_literal e2 (by simp [h]))]
     · -- e1 is not a literal, so use induction hypothesis
       rw [evalOneStep_nonlit_add _ _ (by simp [h])]
-      have e1opsCount_nonzero : 1 ≤ e1.opsCount := by exact opsCount_nonzero_if_not_literal _ (by simp [h])
+      have e1opsCount_nonzero : 1 ≤ e1.opsCount := by exact opsCount_nonzero_if_not_literal e1 (by simp [h])
       simp +arith [opsCount, ih1, h, e1opsCount_nonzero]
 
   | mul e1 e2 ih1 ih2 => -- Similar to the add case
-    by_cases h : e1.isLiteral = true
-    · rcases isLiteral_extract e1 h with ⟨n1, rfl⟩
-      cases h : e2 with
-      | literal n2 =>
-        simp [evalOneStep]
-      | add e21 e22 =>
-        rw [←h, evalOneStep_lit_mul_nonlit _ _ (by simp [h]), opsCount]
-        simp only [ih2]
-        simp +arith [opsCount, h]
-      | mul e21 e22 =>
-        rw [←h, evalOneStep_lit_mul_nonlit _ _ (by simp [h]), opsCount]
-        simp only [ih2]
-        simp +arith [opsCount, h]
+    by_cases h : e1.IsLiteral
+    · -- e1 is a literal
+      rcases isLiteral_extract h with ⟨n1, rfl⟩
+      by_cases h : e2.IsLiteral
+      · -- both e1 and e2 are literals. Reduction actually happens in this branch
+        rcases isLiteral_extract h with ⟨n2, rfl⟩
+        simp [h, evalOneStep]
+      · rw [evalOneStep_lit_mul_nonlit _ _ (by simp [h]), opsCount, ih2]
+        simp +arith [opsCount, h, Nat.sub_add_cancel (opsCount_nonzero_if_not_literal e2 (by simp [h]))]
     · rw [evalOneStep_nonlit_mul _ _ (by simp [h])]
       have e1opsCount_nonzero : 1 ≤ e1.opsCount := by exact opsCount_nonzero_if_not_literal _ (by simp [h])
       simp +arith [opsCount, ih1, h, e1opsCount_nonzero]
@@ -197,7 +186,7 @@ abbrev init (e : ArithExpr) : ArithmeticCKMachine := ⟨e, []⟩
 def machineStateOpCount (machine : ArithmeticCKMachine): Nat :=
   machine.controlString.opsCount + (machine.frames.map frameOpCount).sum
 
-def step : ArithmeticCKMachine → ArithmeticCKMachine
+abbrev step : ArithmeticCKMachine → ArithmeticCKMachine
 | ⟨add e1 e2, frames⟩ => ⟨e1, thenEvalRightAdd e2 :: frames⟩
 | ⟨mul e1 e2, frames⟩ => ⟨e1, thenEvalRightMul e2 :: frames⟩
 | ⟨literal n, frames⟩ =>
@@ -311,9 +300,7 @@ abbrev stitchUp : (term : ArithExpr) → (contStack : List ArithEvalFrame) → A
 | e, (thenMulLitLeft n) :: frames    => stitchUp (mul (literal n) e) frames
 
 def reductionCountUptoIndex (initExpr : ArithExpr) (idx : Nat) : Nat :=
-  (List.range idx)
-    |>.filter (isReducingTransition initExpr)
-    |>.length
+  (List.range idx).countP (isReducingTransition initExpr)
   where
     isReducingTransition (expr : ArithExpr) i :=
       let ⟨control, frames⟩ := step^[i] (init expr)
@@ -325,63 +312,22 @@ def reductionCountUptoIndex (initExpr : ArithExpr) (idx : Nat) : Nat :=
         | _ => false
       | _ => false
 
-lemma reductionCountUptoIndex_nondecreasing (initExpr : ArithExpr) (idx : Nat) :
-    let prev := reductionCountUptoIndex initExpr idx
-    let next := reductionCountUptoIndex initExpr (idx + 1)
-    prev = next ∨ prev.succ = next := by
-  by_cases h : reductionCountUptoIndex.isReducingTransition initExpr idx
-  · simp [reductionCountUptoIndex, List.range_succ, h]
-  · simp [reductionCountUptoIndex, List.range_succ, h]
-
-private lemma iterate_succ_apply_outer {α : Type} {f : α → α} (n : ℕ) (x : α) : f^[n.succ] x = f (f^[n] x) := by
-  rw [Nat.succ_eq_add_one, Nat.add_comm, Function.iterate_add_apply (α := α) f 1 n, Function.iterate_one]
-
--- TODO: simplify?
 lemma machineStateOpCount_plus_reductionCountUptoIndex_preserved (expr : ArithExpr) (n : Nat) :
     (step^[n.succ] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n.succ) =
     (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) := by
-  rw [iterate_succ_apply_outer]
+  rw [Function.iterate_succ_apply']
   rcases h : step^[n] (init expr) with ⟨control, frames⟩
   cases hc : control with
   | literal _ =>
     cases hf : frames with
-    | nil => simp [step, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition, h, hc, hf]
+    | nil => simp [*, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
     | cons head tail =>
-      cases head with
-      | thenEvalRightAdd e =>
-        simp +arith [
-          step, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
-          reductionCountUptoIndex.isReducingTransition, h, hc, hf
-        ]
-      | thenEvalRightMul e => -- same as previous branch
-        simp +arith [
-          step, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
-          reductionCountUptoIndex.isReducingTransition, h, hc, hf
-        ]
-      | thenAddLitLeft n' =>
-        have : reductionCountUptoIndex.isReducingTransition expr n = true := by
-          simp [reductionCountUptoIndex.isReducingTransition, h, hc, hf]
-        simp +arith [
-          step, machineStateOpCount, frameOpCount, reductionCountUptoIndex,
-          List.range_succ, List.filter_cons_of_pos this
-        ]
-      | thenMulLitLeft n' => -- same as previous branch
-        have : reductionCountUptoIndex.isReducingTransition expr n = true := by
-          simp [reductionCountUptoIndex.isReducingTransition, h, hc, hf]
-        simp +arith [
-          step, machineStateOpCount, frameOpCount, reductionCountUptoIndex,
-          List.range_succ, List.filter_cons_of_pos this
-        ]
+      cases head <;>
+        simp +arith [*, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
   | add e1 e2 =>
-    simp +arith [
-      step, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
-      reductionCountUptoIndex.isReducingTransition, h, hc
-    ]
+    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
   | mul e1 e2 =>
-    simp +arith [
-      step, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ,
-      reductionCountUptoIndex.isReducingTransition, h, hc
-    ]
+    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
 
 lemma machineStateOpCount_plus_reductionCountUptoIndex_constant (expr : ArithExpr) (n : Nat) :
     (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) = expr.opsCount := by
@@ -391,24 +337,11 @@ lemma machineStateOpCount_plus_reductionCountUptoIndex_constant (expr : ArithExp
 
 lemma stitchUp_nonlit_evalOneStep
     (e : ArithExpr) (fs : List ArithEvalFrame)
-    (eNonlit : e.isLiteral = false) :
+    (eNonlit : ¬e.IsLiteral) :
     (stitchUp e fs).evalOneStep = stitchUp e.evalOneStep fs := by
   induction fs generalizing e with
-  | nil => simp
-  | cons f fs ih =>
-    cases f with
-    | thenEvalRightAdd e1 =>
-      dsimp only [stitchUp]
-      rw [←evalOneStep_nonlit_add e e1 eNonlit, ←ih _ (by simp)]
-    | thenEvalRightMul e1 =>
-      dsimp only [stitchUp]
-      rw [←evalOneStep_nonlit_mul e e1 eNonlit, ←ih _ (by simp)]
-    | thenAddLitLeft n =>
-      dsimp only [stitchUp]
-      rw [←evalOneStep_lit_add_nonlit n e eNonlit, ←ih _ (by simp)]
-    | thenMulLitLeft n =>
-      dsimp only [stitchUp]
-      rw [←evalOneStep_lit_mul_nonlit n e eNonlit, ←ih _ (by simp)]
+  | nil          => simp
+  | cons f fs ih => cases f <;> simp_all
 
 lemma stitchUp_lit_thenAddLitLeft_evalOneStep (n m : Nat) :
     (stitchUp (literal n) (thenAddLitLeft m :: fs)).evalOneStep = stitchUp (literal (m + n)) fs := by
@@ -426,7 +359,6 @@ lemma stitchUp_lit_thenMulLitLeft_evalOneStep (n m : Nat) :
     evalOneStep
   ]
 
--- TODO: simplify?
 theorem stitchUp_traces_evalOneStep (initExpr : ArithExpr) (idx : Nat) :
     let ⟨t, s⟩ := step^[idx] (init initExpr)
     stitchUp t s = evalOneStep^[reductionCountUptoIndex initExpr idx] initExpr := by
@@ -435,50 +367,41 @@ theorem stitchUp_traces_evalOneStep (initExpr : ArithExpr) (idx : Nat) :
   | succ idx ih =>
     rcases machineAtIdx : (step^[idx] (init initExpr)) with ⟨t, s⟩
     simp [machineAtIdx] at ih
+    rw [Function.iterate_succ_apply', machineAtIdx]
     cases t with
     | literal n =>
         cases s with
-        | nil => -- halted: no reduction happens
-          simp [iterate_succ_apply_outer, machineAtIdx, step, stitchUp]
-          cases reductionCountUptoIndex_nondecreasing initExpr idx with
-          | inl h' => rw [←h', ←ih, stitchUp]
-          | inr h' => rw [←h', iterate_succ_apply_outer, ←ih, stitchUp, evalOneStep]
+        | nil => -- machine halted: no reduction happens
+          dsimp only
+          have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
+            simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+          simp_all
         | cons f fs =>
           cases f with
           | thenAddLitLeft m => -- an actual reduction happens here
-            rw [iterate_succ_apply_outer, machineAtIdx]
-            simp only [step]
             have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx + 1 := by
-              have : reductionCountUptoIndex.isReducingTransition initExpr idx = true := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-              simp [reductionCountUptoIndex, List.range_succ, List.filter_cons_of_pos this]
-            rw [this, iterate_succ_apply_outer, ←ih, stitchUp_lit_thenAddLitLeft_evalOneStep]
+              simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+            rw [this, Function.iterate_succ_apply', ←ih, stitchUp_lit_thenAddLitLeft_evalOneStep]
           | thenMulLitLeft m => -- same as previous branch
-            rw [iterate_succ_apply_outer, machineAtIdx]
-            simp only [step]
             have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx + 1 := by
-              have : reductionCountUptoIndex.isReducingTransition initExpr idx = true := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-              simp [reductionCountUptoIndex, List.range_succ, List.filter_cons_of_pos this]
-            rw [this, iterate_succ_apply_outer, ←ih, stitchUp_lit_thenMulLitLeft_evalOneStep]
+              simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+            rw [this, Function.iterate_succ_apply', ←ih, stitchUp_lit_thenMulLitLeft_evalOneStep]
           | thenEvalRightAdd e₂ => -- no reduction happens here, stitchUp must be preserved
             have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
-              have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-              simp [reductionCountUptoIndex, List.range_succ, this]
-            rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+              simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+            rw [this, ←ih]
           | thenEvalRightMul e₂ => -- same as previous branch
             have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
-              have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-              simp [reductionCountUptoIndex, List.range_succ, this]
-            rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+              simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+            rw [this, ←ih]
     | add e₁ e₂ =>
       have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
-        have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-        simp [reductionCountUptoIndex, List.range_succ, this]
-      rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+        simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+      rw [this, ←ih]
     | mul e₁ e₂ =>
       have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
-        have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
-        simp [reductionCountUptoIndex, List.range_succ, this]
-      rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+        simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+      rw [this, ←ih]
 
 lemma totalReductionCount (expr : ArithExpr) :
     reductionCountUptoIndex expr (expr.opsCount * 3) = expr.opsCount := by
