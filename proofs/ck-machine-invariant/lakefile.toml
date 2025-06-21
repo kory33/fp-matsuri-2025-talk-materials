@@ -1,0 +1,14 @@
+name = "ck-machine-invariant"
+version = "0.1.0"
+defaultTargets = ["ck-machine-invariant"]
+
+[[lean_lib]]
+name = "CKMachineInvariant"
+
+[[lean_exe]]
+name = "ck-machine-invariant"
+root = "Main"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
