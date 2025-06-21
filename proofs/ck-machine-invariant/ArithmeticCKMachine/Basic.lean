@@ -312,29 +312,6 @@ def reductionCountUptoIndex (initExpr : ArithExpr) (idx : Nat) : Nat :=
         | _ => false
       | _ => false
 
-lemma machineStateOpCount_plus_reductionCountUptoIndex_preserved (expr : ArithExpr) (n : Nat) :
-    (step^[n.succ] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n.succ) =
-    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) := by
-  rw [Function.iterate_succ_apply']
-  rcases h : step^[n] (init expr) with ⟨control, frames⟩
-  cases hc : control with
-  | literal _ =>
-    cases hf : frames with
-    | nil => simp [*, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
-    | cons head tail =>
-      cases head <;>
-        simp +arith [*, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
-  | add e1 e2 =>
-    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
-  | mul e1 e2 =>
-    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
-
-lemma machineStateOpCount_plus_reductionCountUptoIndex_constant (expr : ArithExpr) (n : Nat) :
-    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) = expr.opsCount := by
-  induction n with
-  | zero      => simp [machineStateOpCount, reductionCountUptoIndex]
-  | succ n ih => rw [machineStateOpCount_plus_reductionCountUptoIndex_preserved expr n, ih]
-
 lemma stitchUp_nonlit_evalOneStep
     (e : ArithExpr) (fs : List ArithEvalFrame)
     (eNonlit : ¬e.IsLiteral) :
@@ -402,6 +379,29 @@ theorem stitchUp_traces_evalOneStep (initExpr : ArithExpr) (idx : Nat) :
       have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
         simp [machineAtIdx, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
       rw [this, ←ih]
+
+lemma machineStateOpCount_plus_reductionCountUptoIndex_preserved (expr : ArithExpr) (n : Nat) :
+    (step^[n.succ] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n.succ) =
+    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) := by
+  rw [Function.iterate_succ_apply']
+  rcases h : step^[n] (init expr) with ⟨control, frames⟩
+  cases hc : control with
+  | literal _ =>
+    cases hf : frames with
+    | nil => simp [*, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+    | cons head tail =>
+      cases head <;>
+        simp +arith [*, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+  | add e1 e2 =>
+    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+  | mul e1 e2 =>
+    simp +arith [*, opsCount, machineStateOpCount, frameOpCount, reductionCountUptoIndex, List.range_succ, reductionCountUptoIndex.isReducingTransition]
+
+lemma machineStateOpCount_plus_reductionCountUptoIndex_constant (expr : ArithExpr) (n : Nat) :
+    (step^[n] (init expr)).machineStateOpCount + (reductionCountUptoIndex expr n) = expr.opsCount := by
+  induction n with
+  | zero      => simp [machineStateOpCount, reductionCountUptoIndex]
+  | succ n ih => rw [machineStateOpCount_plus_reductionCountUptoIndex_preserved expr n, ih]
 
 lemma totalReductionCount (expr : ArithExpr) :
     reductionCountUptoIndex expr (expr.opsCount * 3) = expr.opsCount := by
