@@ -208,9 +208,9 @@ def step : ArithmeticCKMachine → ArithmeticCKMachine
 | ⟨literal n, frames⟩ =>
     match frames with
     | (thenEvalRightAdd e1) :: frames' => ⟨e1, thenAddLitLeft n :: frames'⟩
-    | (thenAddLitLeft n1) :: frames'   => ⟨literal (n + n1), frames'⟩
+    | (thenAddLitLeft n1) :: frames'   => ⟨literal (n1 + n), frames'⟩
     | (thenEvalRightMul e1) :: frames' => ⟨e1, thenMulLitLeft n :: frames'⟩
-    | (thenMulLitLeft n1) :: frames'   => ⟨literal (n * n1), frames'⟩
+    | (thenMulLitLeft n1) :: frames'   => ⟨literal (n1 * n), frames'⟩
     | [] => ⟨literal n, []⟩
 
 /--
@@ -318,28 +318,132 @@ def stitchUp : (term : ArithExpr) → (contStack : List ArithEvalFrame) → Arit
 
 def reductionCountUptoIndex (initExpr : ArithExpr) (idx : Nat) : Nat :=
   (List.range idx)
-    |> List.filter (fun i =>
-      let ⟨control, frames⟩ := step^[i] (init initExpr)
-      match control with
-      | literal _ =>
-        match frames with
-        | (thenAddLitLeft _) :: _ => true
-        | (thenMulLitLeft _) :: _ => true
-        | _ => false
-      | _ => false
-    )
+    |> List.filter (isReducingTransition initExpr)
     |> List.length
+  where
+    isReducingTransition := fun (expr : ArithExpr) i =>
+        let ⟨control, frames⟩ := step^[i] (init expr)
+        match control with
+        | literal _ =>
+          match frames with
+          | (thenAddLitLeft _) :: _ => true
+          | (thenMulLitLeft _) :: _ => true
+          | _ => false
+        | _ => false
+
+lemma reductionCountUptoIndex_nondecreasing (initExpr : ArithExpr) (idx : Nat) :
+    let prev := reductionCountUptoIndex initExpr idx
+    let next := reductionCountUptoIndex initExpr (idx + 1)
+    prev = next ∨ prev.succ = next := by
+  by_cases h : reductionCountUptoIndex.isReducingTransition initExpr idx
+  · simp [reductionCountUptoIndex, List.range_succ, h]
+  · simp [reductionCountUptoIndex, List.range_succ, h]
 
 private lemma iterate_succ_apply_outer {α : Type} {f : α → α} (n : ℕ) (x : α) : f^[n.succ] x = f (f^[n] x) := by
   rw [Nat.succ_eq_add_one, Nat.add_comm, Function.iterate_add_apply (α := α) f 1 n]
   simp
 
-theorem stitchUp_traces_evalOneStep
-    (initExpr : ArithExpr) (idx : Nat) :
+lemma stitchUp_nonlit_evalOneStep
+    (e : ArithExpr) (fs : List ArithEvalFrame)
+    (h : e.isLiteral = false) :
+    (stitchUp e fs).evalOneStep = stitchUp (evalOneStep e) fs := by
+  induction fs generalizing e with
+  | nil => simp [stitchUp]
+  | cons f fs ih =>
+    cases f with
+    | thenEvalRightAdd e1 =>
+      nth_rw 2 [stitchUp]
+      rw [←evalOneStep_nonlit_add e e1 h, ←ih (e.add e1) (by simp [isLiteral])]
+      apply congrArg evalOneStep
+      simp [stitchUp]
+    | thenEvalRightMul e1 =>
+      nth_rw 2 [stitchUp]
+      rw [←evalOneStep_nonlit_mul e e1 h, ←ih (e.mul e1) (by simp [isLiteral])]
+      apply congrArg evalOneStep
+      simp [stitchUp]
+    | thenAddLitLeft n =>
+      nth_rw 2 [stitchUp]
+      rw [←evalOneStep_lit_add_nonlit n e h, ←ih (add (literal n) e) (by simp [isLiteral])]
+      apply congrArg evalOneStep
+      simp [stitchUp]
+    | thenMulLitLeft n =>
+      nth_rw 2 [stitchUp]
+      rw [←evalOneStep_lit_mul_nonlit n e h, ←ih (mul (literal n) e) (by simp [isLiteral])]
+      apply congrArg evalOneStep
+      simp [stitchUp]
+
+lemma stitchUp_lit_thenAddLitLeft_evalOneStep (n m : Nat) :
+    (stitchUp (literal n) (thenAddLitLeft m :: fs)).evalOneStep = stitchUp (literal (m + n)) fs := by
+  rw [
+    stitchUp,
+    stitchUp_nonlit_evalOneStep ((literal m).add (literal n)) fs (by simp [isLiteral]),
+    evalOneStep
+  ]
+
+lemma stitchUp_lit_thenMulLitLeft_evalOneStep (n m : Nat) :
+    (stitchUp (literal n) (thenMulLitLeft m :: fs)).evalOneStep = stitchUp (literal (m * n)) fs := by
+  rw [
+    stitchUp,
+    stitchUp_nonlit_evalOneStep ((literal m).mul (literal n)) fs (by simp [isLiteral]),
+    evalOneStep
+  ]
+
+theorem stitchUp_traces_evalOneStep (initExpr : ArithExpr) (idx : Nat) :
     let ⟨t, s⟩ := step^[idx] (init initExpr)
-    stitchUp t s =
-      evalOneStep^[reductionCountUptoIndex initExpr idx] initExpr := by
-  sorry
+    stitchUp t s = evalOneStep^[reductionCountUptoIndex initExpr idx] initExpr := by
+  induction idx with
+  | zero => simp [stitchUp, reductionCountUptoIndex, init]
+  | succ idx ih =>
+    rcases machineAtIdx : (step^[idx] (init initExpr)) with ⟨t, s⟩ -- TODO: rename h₀ to machineAtIdx
+    simp [machineAtIdx] at ih
+    cases t with
+    | literal n =>
+        cases s with
+        | nil => -- halted: no reduction happens
+          simp [iterate_succ_apply_outer, machineAtIdx, step, stitchUp]
+          cases reductionCountUptoIndex_nondecreasing initExpr idx with
+          | inl h' => rw [←h', ←ih, stitchUp]
+          | inr h' => rw [←h', iterate_succ_apply_outer, ←ih, stitchUp, evalOneStep]
+        | cons f fs =>
+          cases f with
+          | thenAddLitLeft m => -- an actual reduction happens here
+            rw [iterate_succ_apply_outer, machineAtIdx]
+            simp only [step]
+            have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx + 1 := by
+              have : reductionCountUptoIndex.isReducingTransition initExpr idx = true := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+              simp [reductionCountUptoIndex, List.range_succ, List.filter_cons_of_pos this]
+            rw [this, iterate_succ_apply_outer, ←ih, stitchUp_lit_thenAddLitLeft_evalOneStep]
+          | thenMulLitLeft m => -- same as previous branch
+            rw [iterate_succ_apply_outer, machineAtIdx]
+            simp only [step]
+            have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx + 1 := by
+              have : reductionCountUptoIndex.isReducingTransition initExpr idx = true := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+              simp [reductionCountUptoIndex, List.range_succ, List.filter_cons_of_pos this]
+            rw [this, iterate_succ_apply_outer, ←ih, stitchUp_lit_thenMulLitLeft_evalOneStep]
+          | thenEvalRightAdd e₂ => -- no reduction happens here, stitchUp must be preserved
+            have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
+              have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+              simp [reductionCountUptoIndex, List.range_succ, this]
+            rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+            simp [stitchUp]
+          | thenEvalRightMul e₂ => -- same as previous branch
+            have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
+              have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+              simp [reductionCountUptoIndex, List.range_succ, this]
+            rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+            simp [stitchUp]
+    | add e₁ e₂ =>
+      have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
+        have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+        simp [reductionCountUptoIndex, List.range_succ, this]
+      rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+      simp [stitchUp]
+    | mul e₁ e₂ =>
+      have : reductionCountUptoIndex initExpr (idx.succ) = reductionCountUptoIndex initExpr idx := by
+        have : reductionCountUptoIndex.isReducingTransition initExpr idx = false := by simp [reductionCountUptoIndex.isReducingTransition, machineAtIdx]
+        simp [reductionCountUptoIndex, List.range_succ, this]
+      rw [this, iterate_succ_apply_outer, machineAtIdx, step, ←ih]
+      simp [stitchUp]
 
 lemma totalReductionCount (initExpr : ArithExpr) :
     reductionCountUptoIndex initExpr (initExpr.size * 3) = initExpr.size := by
